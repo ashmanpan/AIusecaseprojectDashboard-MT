@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Use Case Details - AI Dashboard</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <!-- Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="header-left">
+            <a href="index.html" class="back-link">&larr; Back to Dashboard</a>
+            <h1 id="useCaseTitle">Use Case Details</h1>
+        </div>
+        <div class="header-right">
+            <div class="user-menu">
+                <span id="userName">John Doe</span>
+                <span class="role-badge">Team Lead</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="detail-content">
+        <!-- Use Case Header -->
+        <section class="detail-header">
+            <div class="detail-header-left">
+                <h1 id="ucName">Incident Management</h1>
+                <div class="status-row">
+                    <span class="status-badge" id="ucStatus">PENDING_LEAD_APPROVAL</span>
+                    <span class="version-badge" id="ucVersion">Version 1.0</span>
+                </div>
+            </div>
+            <div class="detail-header-right">
+                <button class="btn btn-secondary" onclick="editUseCase()">Edit</button>
+                <button class="btn btn-primary" id="submitBtn" onclick="submitForApproval()">Submit for Approval</button>
+            </div>
+        </section>
+
+        <!-- Info Cards -->
+        <section class="info-cards">
+            <div class="info-card">
+                <label>Deployment Location</label>
+                <span id="ucDeploymentLocation">Lab</span>
+            </div>
+            <div class="info-card">
+                <label>Lifecycle Stage</label>
+                <span id="ucLifecycleStage">Internal Unit Testing</span>
+            </div>
+            <div class="info-card">
+                <label>Deployed in Lab</label>
+                <span id="ucDeployedInLab">Yes</span>
+            </div>
+            <div class="info-card">
+                <label>Internal Tests Ready</label>
+                <span id="ucInternalTestsReady">Yes</span>
+            </div>
+            <div class="info-card">
+                <label>Joint Tests Ready</label>
+                <span id="ucJointTestsReady">No</span>
+            </div>
+        </section>
+
+        <!-- Description -->
+        <section class="detail-section">
+            <h2>Description</h2>
+            <p id="ucDescription">AI-powered incident management system for automated ticket classification, routing, and resolution suggestions.</p>
+        </section>
+
+        <!-- Test Progress Overview -->
+        <section class="detail-section">
+            <h2>Test Progress</h2>
+            <div class="test-progress-overview">
+                <div class="progress-stat">
+                    <span class="progress-label">Total Test Cases</span>
+                    <span class="progress-value" id="totalTests">115</span>
+                </div>
+                <div class="progress-stat">
+                    <span class="progress-label">Passed</span>
+                    <span class="progress-value passed" id="passedTests">41</span>
+                </div>
+                <div class="progress-stat">
+                    <span class="progress-label">Failed</span>
+                    <span class="progress-value failed" id="failedTests">5</span>
+                </div>
+                <div class="progress-stat">
+                    <span class="progress-label">Pending</span>
+                    <span class="progress-value pending" id="pendingTests">69</span>
+                </div>
+            </div>
+            <div class="progress-bar-container">
+                <div class="progress-bar">
+                    <div class="progress-passed" id="progressPassed" style="width: 35.6%"></div>
+                    <div class="progress-failed" id="progressFailed" style="width: 4.4%"></div>
+                </div>
+                <span class="progress-percentage" id="progressPercentage">35.6% Complete</span>
+            </div>
+        </section>
+
+        <!-- Test Cases Table -->
+        <section class="detail-section">
+            <div class="section-header">
+                <h2>Test Cases</h2>
+                <div class="section-actions">
+                    <select id="testStatusFilter" class="filter-select" onchange="filterTestCases()">
+                        <option value="">All Status</option>
+                        <option value="PASSED">Passed</option>
+                        <option value="FAILED">Failed</option>
+                        <option value="PENDING">Pending</option>
+                        <option value="BLOCKED">Blocked</option>
+                    </select>
+                    <button class="btn btn-primary" onclick="openAddTestCaseModal()">+ Add Test Case</button>
+                </div>
+            </div>
+            <table class="data-table" id="testCasesTable">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Test Case Name</th>
+                        <th>Priority</th>
+                        <th>Status</th>
+                        <th>Last Run</th>
+                        <th>Links</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="testCasesTableBody">
+                    <!-- Populated by JavaScript -->
+                </tbody>
+            </table>
+        </section>
+
+        <!-- Documents & Videos -->
+        <section class="detail-section">
+            <div class="section-header">
+                <h2>Documents & Videos</h2>
+                <button class="btn btn-primary" onclick="openUploadModal()">+ Upload</button>
+            </div>
+            <div class="documents-grid" id="documentsGrid">
+                <!-- Populated by JavaScript -->
+            </div>
+        </section>
+
+        <!-- Approval History -->
+        <section class="detail-section">
+            <h2>Approval History</h2>
+            <div class="timeline" id="approvalTimeline">
+                <!-- Populated by JavaScript -->
+            </div>
+        </section>
+
+        <!-- Version History -->
+        <section class="detail-section">
+            <h2>Version History</h2>
+            <table class="data-table" id="versionTable">
+                <thead>
+                    <tr>
+                        <th>Version</th>
+                        <th>Date</th>
+                        <th>Author</th>
+                        <th>Changes</th>
+                    </tr>
+                </thead>
+                <tbody id="versionTableBody">
+                    <!-- Populated by JavaScript -->
+                </tbody>
+            </table>
+        </section>
+    </main>
+
+    <!-- Add Test Case Modal -->
+    <div id="addTestCaseModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('addTestCaseModal')">&times;</span>
+            <h2>Add Test Case</h2>
+            <form id="addTestCaseForm" onsubmit="addTestCase(event)">
+                <div class="form-group">
+                    <label for="testCaseName">Test Case Name *</label>
+                    <input type="text" id="testCaseName" required>
+                </div>
+                <div class="form-group">
+                    <label for="testDescription">Description</label>
+                    <textarea id="testDescription" rows="2"></textarea>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="testPriority">Priority</label>
+                        <select id="testPriority">
+                            <option value="HIGH">High</option>
+                            <option value="MEDIUM" selected>Medium</option>
+                            <option value="LOW">Low</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="testStatus">Status</label>
+                        <select id="testStatus">
+                            <option value="PENDING" selected>Pending</option>
+                            <option value="PASSED">Passed</option>
+                            <option value="FAILED">Failed</option>
+                            <option value="BLOCKED">Blocked</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="testCaseDocLink">Test Case Document Link</label>
+                    <input type="url" id="testCaseDocLink" placeholder="https://...">
+                </div>
+                <div class="form-group">
+                    <label for="testResultLink">Test Result/Evidence Link</label>
+                    <input type="url" id="testResultLink" placeholder="https://...">
+                </div>
+                <div class="form-group">
+                    <label for="jiraLink">Jira/Issue Tracker Link</label>
+                    <input type="url" id="jiraLink" placeholder="https://jira.example.com/...">
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('addTestCaseModal')">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Add Test Case</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Upload Document Modal -->
+    <div id="uploadModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('uploadModal')">&times;</span>
+            <h2>Upload Document</h2>
+            <form id="uploadForm" onsubmit="uploadDocument(event)">
+                <div class="form-group">
+                    <label for="docType">Document Type *</label>
+                    <select id="docType" required>
+                        <option value="TEST_CASE_DOC">Test Case Document</option>
+                        <option value="TEST_VIDEO">Test Video</option>
+                        <option value="DESIGN_DOC">Design Document</option>
+                        <option value="OTHER">Other</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="docFile">Select File *</label>
+                    <input type="file" id="docFile" accept=".pdf,.docx,.xlsx,.pptx,.mp4,.mov,.avi" required>
+                    <small>Supported: PDF, DOCX, XLSX, PPTX, MP4, MOV, AVI (Max 500MB for videos)</small>
+                </div>
+                <div class="form-group">
+                    <label for="docLink">Or Enter External Link</label>
+                    <input type="url" id="docLink" placeholder="https://...">
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('uploadModal')">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Upload</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Test Case Detail Modal -->
+    <div id="testDetailModal" class="modal">
+        <div class="modal-content modal-large">
+            <span class="close" onclick="closeModal('testDetailModal')">&times;</span>
+            <h2 id="testDetailTitle">Test Case Details</h2>
+            <div class="test-detail-content">
+                <div class="test-detail-info">
+                    <div class="info-row">
+                        <label>Status:</label>
+                        <span id="testDetailStatus" class="status-badge">PASSED</span>
+                    </div>
+                    <div class="info-row">
+                        <label>Priority:</label>
+                        <span id="testDetailPriority">High</span>
+                    </div>
+                    <div class="info-row">
+                        <label>Last Run:</label>
+                        <span id="testDetailLastRun">Jan 5, 2026</span>
+                    </div>
+                    <div class="info-row">
+                        <label>Description:</label>
+                        <p id="testDetailDescription">Test description here...</p>
+                    </div>
+                </div>
+                <div class="test-detail-links">
+                    <h3>Links & Resources</h3>
+                    <ul id="testDetailLinks">
+                        <!-- Populated by JavaScript -->
+                    </ul>
+                </div>
+                <div class="test-detail-actions">
+                    <button class="btn btn-success" onclick="updateTestStatus('PASSED')">Mark Passed</button>
+                    <button class="btn btn-danger" onclick="updateTestStatus('FAILED')">Mark Failed</button>
+                    <button class="btn btn-secondary" onclick="editTestCase()">Edit</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/data.js"></script>
+    <script src="js/usecase.js"></script>
+</body>
+</html>

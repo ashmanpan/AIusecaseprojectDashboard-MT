@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pending Approvals - AI Dashboard</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <header class="header">
+        <div class="header-left">
+            <h1><i class="fas fa-clipboard-check"></i> Pending Approvals</h1>
+        </div>
+        <div class="header-right">
+            <select id="tenantSelector" class="tenant-select">
+                <option value="customer1">Customer Alpha</option>
+                <option value="customer2">Customer Beta</option>
+            </select>
+            <div class="user-menu">
+                <span id="userName">John Doe</span>
+                <span class="role-badge">Team Lead</span>
+            </div>
+        </div>
+    </header>
+
+    <nav class="sidebar">
+        <ul>
+            <li><a href="index.html"><i class="fas fa-chart-line"></i> Dashboard</a></li>
+            <li><a href="usecases.html"><i class="fas fa-brain"></i> Use Cases</a></li>
+            <li class="active"><a href="approvals.html"><i class="fas fa-clipboard-check"></i> Approvals <span class="badge" id="pendingCount">3</span></a></li>
+            <li><a href="settings.html"><i class="fas fa-cog"></i> Settings</a></li>
+        </ul>
+    </nav>
+
+    <main class="main-content">
+        <section class="stats-section">
+            <div class="stat-card">
+                <div class="stat-icon pending">
+                    <i class="fas fa-user-tie"></i>
+                </div>
+                <div class="stat-info">
+                    <span class="stat-value" id="pendingLeadCount">2</span>
+                    <span class="stat-label">Pending Lead Approval</span>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon testing">
+                    <i class="fas fa-users"></i>
+                </div>
+                <div class="stat-info">
+                    <span class="stat-value" id="pendingCustomerCount">1</span>
+                    <span class="stat-label">Pending Customer Approval</span>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon total">
+                    <i class="fas fa-exclamation-triangle"></i>
+                </div>
+                <div class="stat-info">
+                    <span class="stat-value" id="changesRequestedCount">1</span>
+                    <span class="stat-label">Changes Requested</span>
+                </div>
+            </div>
+        </section>
+
+        <section class="approval-queue">
+            <h2>Awaiting Your Review</h2>
+            <div id="approvalCards" class="approval-cards">
+                <!-- Populated by JavaScript -->
+            </div>
+        </section>
+    </main>
+
+    <script src="js/data.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            renderApprovalQueue();
+            updateStats();
+        });
+
+        function updateStats() {
+            const useCases = AppData.useCases.filter(uc => uc.tenantId === AppData.currentTenant);
+            document.getElementById('pendingLeadCount').textContent =
+                useCases.filter(uc => uc.status === 'PENDING_LEAD_APPROVAL').length;
+            document.getElementById('pendingCustomerCount').textContent =
+                useCases.filter(uc => uc.status === 'PENDING_CUSTOMER_APPROVAL').length;
+            document.getElementById('changesRequestedCount').textContent =
+                useCases.filter(uc => uc.status === 'CHANGES_REQUESTED').length;
+            document.getElementById('pendingCount').textContent =
+                useCases.filter(uc => uc.status.includes('PENDING')).length;
+        }
+
+        function renderApprovalQueue() {
+            const container = document.getElementById('approvalCards');
+            const role = AppData.currentUser.role;
+            let useCases = AppData.useCases.filter(uc => uc.tenantId === AppData.currentTenant);
+
+            // Filter based on role
+            if (role === 'TEAM_LEAD') {
+                useCases = useCases.filter(uc => uc.status === 'PENDING_LEAD_APPROVAL');
+            } else if (role === 'CUSTOMER_INCHARGE') {
+                useCases = useCases.filter(uc => uc.status === 'PENDING_CUSTOMER_APPROVAL');
+            } else {
+                useCases = useCases.filter(uc =>
+                    uc.status === 'PENDING_LEAD_APPROVAL' ||
+                    uc.status === 'PENDING_CUSTOMER_APPROVAL'
+                );
+            }
+
+            if (useCases.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-content">
+                            <i class="fas fa-check-circle" style="color: #22c55e;"></i>
+                            <h3>All caught up!</h3>
+                            <p>No items pending your approval.</p>
+                        </div>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = useCases.map(uc => `
+                <div class="approval-card">
+                    <div class="approval-card-header">
+                        <h3>${uc.name}</h3>
+                        <span class="status-badge ${uc.status}">${formatStatus(uc.status)}</span>
+                    </div>
+                    <div class="approval-card-body">
+                        <div class="approval-info">
+                            <div class="info-item">
+                                <i class="fas fa-server"></i>
+                                <span>${getDeploymentLocationName(uc.deploymentLocation)}</span>
+                            </div>
+                            <div class="info-item">
+                                <i class="fas fa-flask"></i>
+                                <span>${getLifecycleStageName(uc.lifecycleStage)}</span>
+                            </div>
+                            <div class="info-item">
+                                <i class="fas fa-vial"></i>
+                                <span>${uc.unitTestProgress.completed}/${uc.unitTestProgress.total} Tests</span>
+                            </div>
+                        </div>
+                        <p class="approval-description">${uc.description}</p>
+                    </div>
+                    <div class="approval-card-actions">
+                        <a href="usecase.html?id=${uc.id}" class="btn btn-secondary">
+                            <i class="fas fa-eye"></i> View Details
+                        </a>
+                        <button class="btn btn-success" onclick="approveUseCase('${uc.id}')">
+                            <i class="fas fa-check"></i> Approve
+                        </button>
+                        <button class="btn btn-warning" onclick="requestChanges('${uc.id}')">
+                            <i class="fas fa-edit"></i> Request Changes
+                        </button>
+                        <button class="btn btn-danger" onclick="rejectUseCase('${uc.id}')">
+                            <i class="fas fa-times"></i> Reject
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function formatStatus(status) {
+            const map = {
+                'PENDING_LEAD_APPROVAL': 'Pending Lead',
+                'PENDING_CUSTOMER_APPROVAL': 'Pending Customer'
+            };
+            return map[status] || status;
+        }
+
+        function approveUseCase(id) {
+            const uc = AppData.useCases.find(u => u.id === id);
+            if (uc.status === 'PENDING_LEAD_APPROVAL') {
+                uc.status = 'PENDING_CUSTOMER_APPROVAL';
+            } else {
+                uc.status = 'APPROVED';
+            }
+            renderApprovalQueue();
+            updateStats();
+            showNotification('Approved successfully!', 'success');
+        }
+
+        function requestChanges(id) {
+            const comments = prompt('Enter feedback for changes:');
+            if (!comments) return;
+            const uc = AppData.useCases.find(u => u.id === id);
+            uc.status = 'CHANGES_REQUESTED';
+            renderApprovalQueue();
+            updateStats();
+            showNotification('Changes requested', 'warning');
+        }
+
+        function rejectUseCase(id) {
+            if (!confirm('Are you sure you want to reject this use case?')) return;
+            const uc = AppData.useCases.find(u => u.id === id);
+            uc.status = 'DRAFT';
+            renderApprovalQueue();
+            updateStats();
+            showNotification('Use case rejected', 'danger');
+        }
+
+        function showNotification(message, type) {
+            const notification = document.createElement('div');
+            notification.className = `notification ${type}`;
+            notification.innerHTML = `<i class="fas fa-info-circle"></i><span>${message}</span>`;
+            document.body.appendChild(notification);
+            setTimeout(() => notification.classList.add('show'), 100);
+            setTimeout(() => {
+                notification.classList.remove('show');
+                setTimeout(() => notification.remove(), 300);
+            }, 3000);
+        }
+    </script>
+    <style>
+        .approval-cards {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+        .approval-card {
+            background: var(--card-bg);
+            border-radius: 12px;
+            box-shadow: var(--shadow);
+            overflow: hidden;
+        }
+        .approval-card-header {
+            padding: 1.25rem 1.5rem;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .approval-card-header h3 {
+            margin: 0;
+            font-size: 1.125rem;
+        }
+        .approval-card-body {
+            padding: 1.5rem;
+        }
+        .approval-info {
+            display: flex;
+            gap: 2rem;
+            margin-bottom: 1rem;
+        }
+        .info-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: var(--text-secondary);
+        }
+        .info-item i {
+            color: var(--primary-color);
+        }
+        .approval-description {
+            color: var(--text-secondary);
+            margin: 0;
+        }
+        .approval-card-actions {
+            padding: 1rem 1.5rem;
+            background: #f8fafc;
+            display: flex;
+            gap: 0.75rem;
+            border-top: 1px solid var(--border-color);
+        }
+        .btn-warning {
+            background: var(--warning-color);
+            color: white;
+        }
+        .approval-queue h2 {
+            margin-bottom: 1.5rem;
+        }
+    </style>
+</body>
+</html>

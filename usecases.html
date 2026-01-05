@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>All Use Cases - AI Dashboard</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <header class="header">
+        <div class="header-left">
+            <h1><i class="fas fa-brain"></i> AI Use Cases</h1>
+        </div>
+        <div class="header-right">
+            <select id="tenantSelector" class="tenant-select">
+                <option value="customer1">Customer Alpha</option>
+                <option value="customer2">Customer Beta</option>
+            </select>
+            <div class="user-menu">
+                <span id="userName">John Doe</span>
+                <span class="role-badge">Team Lead</span>
+            </div>
+        </div>
+    </header>
+
+    <nav class="sidebar">
+        <ul>
+            <li><a href="index.html"><i class="fas fa-chart-line"></i> Dashboard</a></li>
+            <li class="active"><a href="usecases.html"><i class="fas fa-brain"></i> Use Cases</a></li>
+            <li><a href="approvals.html"><i class="fas fa-clipboard-check"></i> Approvals <span class="badge" id="pendingCount">3</span></a></li>
+            <li><a href="settings.html"><i class="fas fa-cog"></i> Settings</a></li>
+        </ul>
+    </nav>
+
+    <main class="main-content">
+        <section class="table-section">
+            <div class="table-header">
+                <h2>All Use Cases</h2>
+                <div class="table-actions">
+                    <input type="text" id="searchInput" placeholder="Search use cases..." class="search-input">
+                    <select id="statusFilter" class="filter-select">
+                        <option value="">All Statuses</option>
+                        <option value="DRAFT">Draft</option>
+                        <option value="PENDING_LEAD_APPROVAL">Pending Lead Approval</option>
+                        <option value="PENDING_CUSTOMER_APPROVAL">Pending Customer Approval</option>
+                        <option value="CHANGES_REQUESTED">Changes Requested</option>
+                        <option value="APPROVED">Approved</option>
+                    </select>
+                    <select id="stageFilter" class="filter-select">
+                        <option value="">All Stages</option>
+                        <option value="INTERNAL_UNIT_TESTING">Unit Testing</option>
+                        <option value="INTERNAL_E2E_TESTING">E2E Testing</option>
+                        <option value="JOINT_TESTING">Joint Testing</option>
+                        <option value="DEPLOYED">Deployed</option>
+                    </select>
+                    <button class="btn btn-primary" onclick="openNewUseCaseModal()">
+                        <i class="fas fa-plus"></i> New Use Case
+                    </button>
+                </div>
+            </div>
+            <table class="data-table" id="useCasesTable">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Use Case Name</th>
+                        <th>Deployed in Lab</th>
+                        <th>Internal Tests</th>
+                        <th>Joint Tests</th>
+                        <th>Test Progress</th>
+                        <th>E2E Testing</th>
+                        <th>Joint Testing</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="useCasesTableBody">
+                </tbody>
+            </table>
+        </section>
+    </main>
+
+    <!-- Same modal as index.html -->
+    <div id="newUseCaseModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('newUseCaseModal')">&times;</span>
+            <h2>Create New Use Case</h2>
+            <form id="newUseCaseForm" onsubmit="createUseCase(event)">
+                <div class="form-group">
+                    <label for="useCaseName">Use Case Name *</label>
+                    <input type="text" id="useCaseName" required>
+                </div>
+                <div class="form-group">
+                    <label for="description">Description</label>
+                    <textarea id="description" rows="3"></textarea>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="deploymentLocation">Deployment Location</label>
+                        <select id="deploymentLocation">
+                            <option value="">Select...</option>
+                            <option value="ON_PREM">On-Premises</option>
+                            <option value="LAB">Lab</option>
+                            <option value="POC_CISCO_LAB">POC Cisco Lab</option>
+                            <option value="POC_CLOUD">POC on Cloud</option>
+                            <option value="PROD_NON_COMMERCIAL">Prod (Non-Commercial)</option>
+                            <option value="PROD_COMMERCIAL">Prod (Commercial)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="lifecycleStage">Lifecycle Stage</label>
+                        <select id="lifecycleStage">
+                            <option value="">Select...</option>
+                            <option value="INTERNAL_UNIT_TESTING">Internal Unit Testing</option>
+                            <option value="INTERNAL_E2E_TESTING">Internal E2E Testing</option>
+                            <option value="JOINT_TESTING">Joint Testing</option>
+                            <option value="APPROVED_BY_JOINT_TEAM">Approved by Joint Team</option>
+                            <option value="DEPLOYED">Deployed</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="totalTestCases">Total Test Cases</label>
+                        <input type="number" id="totalTestCases" min="0" value="0">
+                    </div>
+                    <div class="form-group">
+                        <label for="labDeployDate">Lab Deploy Date</label>
+                        <input type="date" id="labDeployDate">
+                    </div>
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('newUseCaseModal')">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Create Use Case</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="js/data.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>

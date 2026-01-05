@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Settings - AI Dashboard</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <header class="header">
+        <div class="header-left">
+            <h1><i class="fas fa-cog"></i> Settings</h1>
+        </div>
+        <div class="header-right">
+            <select id="tenantSelector" class="tenant-select">
+                <option value="customer1">Customer Alpha</option>
+                <option value="customer2">Customer Beta</option>
+            </select>
+            <div class="user-menu">
+                <span id="userName">John Doe</span>
+                <span class="role-badge">Team Lead</span>
+            </div>
+        </div>
+    </header>
+
+    <nav class="sidebar">
+        <ul>
+            <li><a href="index.html"><i class="fas fa-chart-line"></i> Dashboard</a></li>
+            <li><a href="usecases.html"><i class="fas fa-brain"></i> Use Cases</a></li>
+            <li><a href="approvals.html"><i class="fas fa-clipboard-check"></i> Approvals</a></li>
+            <li class="active"><a href="settings.html"><i class="fas fa-cog"></i> Settings</a></li>
+        </ul>
+    </nav>
+
+    <main class="main-content">
+        <!-- Lifecycle Stages -->
+        <section class="settings-section">
+            <div class="section-header">
+                <h2><i class="fas fa-list-ol"></i> Lifecycle Stages</h2>
+                <button class="btn btn-primary btn-sm" onclick="addLifecycleStage()">
+                    <i class="fas fa-plus"></i> Add Stage
+                </button>
+            </div>
+            <p class="section-description">Configure the lifecycle stages for use cases in your organization.</p>
+            <div class="settings-list" id="lifecycleStagesList">
+                <!-- Populated by JavaScript -->
+            </div>
+        </section>
+
+        <!-- Deployment Locations -->
+        <section class="settings-section">
+            <div class="section-header">
+                <h2><i class="fas fa-server"></i> Deployment Locations</h2>
+                <button class="btn btn-primary btn-sm" onclick="addDeploymentLocation()">
+                    <i class="fas fa-plus"></i> Add Location
+                </button>
+            </div>
+            <p class="section-description">Define where use cases can be deployed.</p>
+            <div class="settings-list" id="deploymentLocationsList">
+                <!-- Populated by JavaScript -->
+            </div>
+        </section>
+
+        <!-- Testing Teams -->
+        <section class="settings-section">
+            <div class="section-header">
+                <h2><i class="fas fa-users"></i> Testing Teams</h2>
+                <button class="btn btn-primary btn-sm" onclick="addTestingTeam()">
+                    <i class="fas fa-plus"></i> Add Team
+                </button>
+            </div>
+            <p class="section-description">Configure joint testing teams for your organization.</p>
+            <div class="settings-list" id="testingTeamsList">
+                <!-- Populated by JavaScript -->
+            </div>
+        </section>
+
+        <!-- User Management -->
+        <section class="settings-section">
+            <div class="section-header">
+                <h2><i class="fas fa-user-cog"></i> User Management</h2>
+                <button class="btn btn-primary btn-sm" onclick="inviteUser()">
+                    <i class="fas fa-user-plus"></i> Invite User
+                </button>
+            </div>
+            <p class="section-description">Manage users and their roles within the organization.</p>
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Email</th>
+                        <th>Role</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="usersList">
+                    <tr>
+                        <td>John Doe</td>
+                        <td>john@example.com</td>
+                        <td><span class="role-badge">Team Lead</span></td>
+                        <td>
+                            <button class="btn btn-sm btn-secondary"><i class="fas fa-edit"></i></button>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>Sarah Chen</td>
+                        <td>sarah@example.com</td>
+                        <td><span class="role-badge" style="background: #64748b;">Team Member</span></td>
+                        <td>
+                            <button class="btn btn-sm btn-secondary"><i class="fas fa-edit"></i></button>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>Mike Johnson</td>
+                        <td>mike@customer.com</td>
+                        <td><span class="role-badge" style="background: #f59e0b;">Customer</span></td>
+                        <td>
+                            <button class="btn btn-sm btn-secondary"><i class="fas fa-edit"></i></button>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </section>
+
+        <!-- Notification Settings -->
+        <section class="settings-section">
+            <div class="section-header">
+                <h2><i class="fas fa-bell"></i> Notification Settings</h2>
+            </div>
+            <p class="section-description">Configure email notifications for your team.</p>
+            <div class="notification-settings">
+                <div class="setting-item">
+                    <label class="toggle-label">
+                        <input type="checkbox" checked>
+                        <span class="toggle-text">Weekly digest emails</span>
+                    </label>
+                    <span class="setting-description">Receive weekly summary of all use case activities</span>
+                </div>
+                <div class="setting-item">
+                    <label class="toggle-label">
+                        <input type="checkbox" checked>
+                        <span class="toggle-text">Approval notifications</span>
+                    </label>
+                    <span class="setting-description">Get notified when items need your approval</span>
+                </div>
+                <div class="setting-item">
+                    <label class="toggle-label">
+                        <input type="checkbox" checked>
+                        <span class="toggle-text">Status change alerts</span>
+                    </label>
+                    <span class="setting-description">Receive alerts when use case status changes</span>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <script src="js/data.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            renderLifecycleStages();
+            renderDeploymentLocations();
+            renderTestingTeams();
+        });
+
+        function renderLifecycleStages() {
+            const list = document.getElementById('lifecycleStagesList');
+            list.innerHTML = AppData.lifecycleStages.map((stage, idx) => `
+                <div class="settings-item">
+                    <span class="item-order">${idx + 1}</span>
+                    <span class="item-name">${stage.name}</span>
+                    <div class="item-actions">
+                        <button class="btn btn-sm btn-icon" title="Move Up"><i class="fas fa-arrow-up"></i></button>
+                        <button class="btn btn-sm btn-icon" title="Move Down"><i class="fas fa-arrow-down"></i></button>
+                        <button class="btn btn-sm btn-icon" title="Edit"><i class="fas fa-edit"></i></button>
+                        <button class="btn btn-sm btn-icon" title="Delete"><i class="fas fa-trash"></i></button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function renderDeploymentLocations() {
+            const list = document.getElementById('deploymentLocationsList');
+            list.innerHTML = AppData.deploymentLocations.map(loc => `
+                <div class="settings-item">
+                    <span class="item-name">${loc.name}</span>
+                    <div class="item-actions">
+                        <button class="btn btn-sm btn-icon" title="Edit"><i class="fas fa-edit"></i></button>
+                        <button class="btn btn-sm btn-icon" title="Delete"><i class="fas fa-trash"></i></button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function renderTestingTeams() {
+            const list = document.getElementById('testingTeamsList');
+            const teams = [
+                { name: 'Customer Team X', email: 'teamx@customer.com' },
+                { name: 'Customer Team Y', email: 'teamy@customer.com' },
+                { name: 'Integration Team', email: 'integration@company.com' }
+            ];
+            list.innerHTML = teams.map(team => `
+                <div class="settings-item">
+                    <div>
+                        <span class="item-name">${team.name}</span>
+                        <span class="item-email">${team.email}</span>
+                    </div>
+                    <div class="item-actions">
+                        <button class="btn btn-sm btn-icon" title="Edit"><i class="fas fa-edit"></i></button>
+                        <button class="btn btn-sm btn-icon" title="Delete"><i class="fas fa-trash"></i></button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function addLifecycleStage() {
+            const name = prompt('Enter lifecycle stage name:');
+            if (name) {
+                AppData.lifecycleStages.push({ id: name.toUpperCase().replace(/\s+/g, '_'), name });
+                renderLifecycleStages();
+            }
+        }
+
+        function addDeploymentLocation() {
+            const name = prompt('Enter deployment location name:');
+            if (name) {
+                AppData.deploymentLocations.push({ id: name.toUpperCase().replace(/\s+/g, '_'), name });
+                renderDeploymentLocations();
+            }
+        }
+
+        function addTestingTeam() {
+            const name = prompt('Enter testing team name:');
+            if (name) {
+                alert('Team added! In production, this would save to the database.');
+                renderTestingTeams();
+            }
+        }
+
+        function inviteUser() {
+            const email = prompt('Enter user email to invite:');
+            if (email) {
+                alert(`Invitation would be sent to ${email}. In production, this integrates with AWS Cognito.`);
+            }
+        }
+    </script>
+    <style>
+        .settings-section {
+            background: var(--card-bg);
+            border-radius: 12px;
+            box-shadow: var(--shadow);
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+        .settings-section .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.5rem;
+            padding-bottom: 0;
+            border: none;
+        }
+        .settings-section .section-header h2 {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin: 0;
+            font-size: 1.125rem;
+        }
+        .section-description {
+            color: var(--text-secondary);
+            margin-bottom: 1.5rem;
+        }
+        .settings-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+        .settings-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.875rem 1rem;
+            background: #f8fafc;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+        }
+        .item-order {
+            background: var(--primary-color);
+            color: white;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.75rem;
+            font-weight: 600;
+            margin-right: 1rem;
+        }
+        .item-name {
+            font-weight: 500;
+            flex: 1;
+        }
+        .item-email {
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+            margin-left: 1rem;
+        }
+        .item-actions {
+            display: flex;
+            gap: 0.25rem;
+        }
+        .notification-settings {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+        .setting-item {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+        .toggle-label {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            cursor: pointer;
+        }
+        .toggle-label input {
+            width: 18px;
+            height: 18px;
+        }
+        .toggle-text {
+            font-weight: 500;
+        }
+        .setting-description {
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+            margin-left: 30px;
+        }
+    </style>
+</body>
+</html>
