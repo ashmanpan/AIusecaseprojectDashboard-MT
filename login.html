@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - AI Use Case Dashboard</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        .login-container {
+            background: white;
+            padding: 3rem;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            width: 100%;
+            max-width: 420px;
+        }
+        .login-header {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+        .login-header i {
+            font-size: 3rem;
+            color: #667eea;
+            margin-bottom: 1rem;
+        }
+        .login-header h1 {
+            font-size: 1.5rem;
+            color: #1e293b;
+            margin-bottom: 0.5rem;
+        }
+        .login-header p {
+            color: #64748b;
+        }
+        .demo-notice {
+            background: #fef3c7;
+            border: 1px solid #f59e0b;
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 1.5rem;
+            font-size: 0.875rem;
+            color: #92400e;
+        }
+        .demo-notice i {
+            margin-right: 0.5rem;
+        }
+        .login-form .form-group {
+            margin-bottom: 1.25rem;
+        }
+        .login-form label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: #374151;
+        }
+        .login-form input {
+            width: 100%;
+            padding: 0.875rem 1rem;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: border-color 0.2s;
+        }
+        .login-form input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        .login-btn {
+            width: 100%;
+            padding: 1rem;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .login-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+        .demo-btn {
+            width: 100%;
+            padding: 1rem;
+            background: #f1f5f9;
+            color: #475569;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 1rem;
+            transition: background 0.2s;
+        }
+        .demo-btn:hover {
+            background: #e2e8f0;
+        }
+        .login-footer {
+            text-align: center;
+            margin-top: 1.5rem;
+            color: #64748b;
+            font-size: 0.875rem;
+        }
+        .login-footer a {
+            color: #667eea;
+            text-decoration: none;
+        }
+        .tenant-select {
+            margin-bottom: 1.25rem;
+        }
+        .tenant-select select {
+            width: 100%;
+            padding: 0.875rem 1rem;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 1rem;
+            background: white;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <div class="login-header">
+            <i class="fas fa-brain"></i>
+            <h1>AI Use Case Dashboard</h1>
+            <p>Sign in to your account</p>
+        </div>
+
+        <div class="demo-notice">
+            <i class="fas fa-info-circle"></i>
+            <strong>Demo Mode:</strong> Click "Enter Demo" to explore the dashboard without AWS backend.
+        </div>
+
+        <form class="login-form" id="loginForm" onsubmit="handleLogin(event)">
+            <div class="tenant-select">
+                <label for="tenant">Organization</label>
+                <select id="tenant">
+                    <option value="customer1">Customer Alpha</option>
+                    <option value="customer2">Customer Beta</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="email">Email Address</label>
+                <input type="email" id="email" placeholder="you@company.com" required>
+            </div>
+
+            <div class="form-group">
+                <label for="password">Password</label>
+                <input type="password" id="password" placeholder="Enter your password" required>
+            </div>
+
+            <button type="submit" class="login-btn">
+                <i class="fas fa-sign-in-alt"></i> Sign In
+            </button>
+
+            <button type="button" class="demo-btn" onclick="enterDemo()">
+                <i class="fas fa-play-circle"></i> Enter Demo Mode
+            </button>
+        </form>
+
+        <div class="login-footer">
+            <p>Don't have an account? <a href="#" onclick="showSignupInfo()">Contact Admin</a></p>
+        </div>
+    </div>
+
+    <script>
+        async function handleLogin(event) {
+            event.preventDefault();
+
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const tenant = document.getElementById('tenant').value;
+
+            // Check if Amplify is configured
+            if (window.AmplifyAuth && window.isAmplifyConfigured) {
+                const result = await window.AmplifyAuth.signIn(email, password);
+                if (result.success) {
+                    localStorage.setItem('tenantId', tenant);
+                    window.location.href = 'index.html';
+                } else {
+                    alert('Login failed: ' + result.error);
+                }
+            } else {
+                // Demo mode - just redirect
+                enterDemo();
+            }
+        }
+
+        function enterDemo() {
+            const tenant = document.getElementById('tenant').value;
+            localStorage.setItem('tenantId', tenant);
+            localStorage.setItem('demoMode', 'true');
+            localStorage.setItem('demoUser', JSON.stringify({
+                id: 'user1',
+                name: 'John Doe',
+                email: 'john@example.com',
+                role: 'TEAM_LEAD',
+                tenantId: tenant
+            }));
+            window.location.href = 'index.html';
+        }
+
+        function showSignupInfo() {
+            alert('Please contact your organization administrator to get an account.');
+        }
+
+        // Check if already logged in
+        document.addEventListener('DOMContentLoaded', function() {
+            if (localStorage.getItem('demoMode') === 'true') {
+                // Already in demo mode, redirect to dashboard
+                // window.location.href = 'index.html';
+            }
+        });
+    </script>
+    <script src="js/amplify-config.js"></script>
+</body>
+</html>

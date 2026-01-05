@@ -1,0 +1,19 @@
+{
+  "name": "ai-usecase-dashboard",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "npx live-server --port=3000",
+    "amplify": "ampx sandbox",
+    "amplify:deploy": "ampx pipeline-deploy"
+  },
+  "dependencies": {
+    "aws-amplify": "^6.0.0"
+  },
+  "devDependencies": {
+    "@aws-amplify/backend": "^1.0.0",
+    "@aws-amplify/backend-cli": "^1.0.0",
+    "typescript": "^5.3.0"
+  }
+}
