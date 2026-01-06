@@ -1,5 +1,11 @@
 // Main Dashboard Application
 
+let chartsInitialized = false;
+let eventListenersSetup = false;
+let deploymentChartInstance = null;
+let lifecycleChartInstance = null;
+let testProgressChartInstance = null;
+
 document.addEventListener('DOMContentLoaded', function() {
     initDashboard();
 });
@@ -25,10 +31,16 @@ function initDashboard() {
     if (document.getElementById('activityList')) {
         renderRecentActivity();
     }
-    if (document.getElementById('deploymentChart')) {
+    if (document.getElementById('deploymentChart') && !chartsInitialized) {
         initCharts();
+        chartsInitialized = true;
+    } else if (chartsInitialized) {
+        updateCharts();
     }
-    setupEventListeners();
+    if (!eventListenersSetup) {
+        setupEventListeners();
+        eventListenersSetup = true;
+    }
 }
 
 // Update statistics cards
@@ -168,7 +180,7 @@ function initCharts() {
     // Deployment Location Chart
     const deploymentData = getDeploymentDistribution();
     const deploymentCtx = document.getElementById('deploymentChart').getContext('2d');
-    new Chart(deploymentCtx, {
+    deploymentChartInstance = new Chart(deploymentCtx, {
         type: 'doughnut',
         data: {
             labels: Object.keys(deploymentData),
@@ -186,14 +198,16 @@ function initCharts() {
             }]
         },
         options: {
-            responsive: true,
-            maintainAspectRatio: false,
+            responsive: false,
+            maintainAspectRatio: true,
+            animation: false,
             plugins: {
                 legend: {
                     position: 'bottom',
                     labels: {
-                        padding: 15,
-                        usePointStyle: true
+                        padding: 8,
+                        usePointStyle: true,
+                        font: { size: 10 }
                     }
                 }
             }
@@ -203,7 +217,7 @@ function initCharts() {
     // Lifecycle Stage Chart
     const lifecycleData = getLifecycleDistribution();
     const lifecycleCtx = document.getElementById('lifecycleChart').getContext('2d');
-    new Chart(lifecycleCtx, {
+    lifecycleChartInstance = new Chart(lifecycleCtx, {
         type: 'bar',
         data: {
             labels: Object.keys(lifecycleData),
@@ -211,12 +225,13 @@ function initCharts() {
                 label: 'Use Cases',
                 data: Object.values(lifecycleData),
                 backgroundColor: '#667eea',
-                borderRadius: 6
+                borderRadius: 4
             }]
         },
         options: {
-            responsive: true,
-            maintainAspectRatio: false,
+            responsive: false,
+            maintainAspectRatio: true,
+            animation: false,
             indexAxis: 'y',
             plugins: {
                 legend: {
@@ -227,7 +242,13 @@ function initCharts() {
                 x: {
                     beginAtZero: true,
                     ticks: {
-                        stepSize: 1
+                        stepSize: 1,
+                        font: { size: 10 }
+                    }
+                },
+                y: {
+                    ticks: {
+                        font: { size: 9 }
                     }
                 }
             }
@@ -237,7 +258,7 @@ function initCharts() {
     // Test Progress Chart
     const testProgress = getOverallTestProgress();
     const testProgressCtx = document.getElementById('testProgressChart').getContext('2d');
-    new Chart(testProgressCtx, {
+    testProgressChartInstance = new Chart(testProgressCtx, {
         type: 'doughnut',
         data: {
             labels: ['Completed', 'Remaining'],
@@ -248,20 +269,43 @@ function initCharts() {
             }]
         },
         options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            cutout: '70%',
+            responsive: false,
+            maintainAspectRatio: true,
+            animation: false,
+            cutout: '60%',
             plugins: {
                 legend: {
                     position: 'bottom',
                     labels: {
-                        padding: 15,
-                        usePointStyle: true
+                        padding: 8,
+                        usePointStyle: true,
+                        font: { size: 10 }
                     }
                 }
             }
         }
     });
+}
+
+// Update charts when tenant changes
+function updateCharts() {
+    if (deploymentChartInstance) {
+        const deploymentData = getDeploymentDistribution();
+        deploymentChartInstance.data.labels = Object.keys(deploymentData);
+        deploymentChartInstance.data.datasets[0].data = Object.values(deploymentData);
+        deploymentChartInstance.update('none');
+    }
+    if (lifecycleChartInstance) {
+        const lifecycleData = getLifecycleDistribution();
+        lifecycleChartInstance.data.labels = Object.keys(lifecycleData);
+        lifecycleChartInstance.data.datasets[0].data = Object.values(lifecycleData);
+        lifecycleChartInstance.update('none');
+    }
+    if (testProgressChartInstance) {
+        const testProgress = getOverallTestProgress();
+        testProgressChartInstance.data.datasets[0].data = [testProgress.completed, testProgress.total - testProgress.completed];
+        testProgressChartInstance.update('none');
+    }
 }
 
 // Setup event listeners

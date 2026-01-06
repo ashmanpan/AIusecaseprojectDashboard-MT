@@ -235,7 +235,11 @@ body {
 }
 
 .chart-card canvas {
-    max-height: 120px;
+    width: 100% !important;
+    height: auto !important;
+    max-width: 200px;
+    margin: 0 auto;
+    display: block;
 }
 
 /* Tables */
