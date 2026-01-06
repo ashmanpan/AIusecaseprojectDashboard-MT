@@ -5,10 +5,11 @@ const AppData = {
     // Current tenant
     currentTenant: 'jio',
     currentUser: {
-        id: 'user1',
-        name: 'John Doe',
-        email: 'john@example.com',
-        role: 'TEAM_LEAD'
+        id: 'vtathe',
+        name: 'Vikarna Tathe',
+        email: 'vtathe@cisco.com',
+        role: 'TEAM_LEAD',
+        tenantId: 'jio'
     },
 
     // Tenants
@@ -27,6 +28,31 @@ const AppData = {
         'xl': { id: 'xl', name: 'XL Axiata Indonesia' },
         'smart': { id: 'smart', name: 'Smart Communications Philippines' }
     },
+
+    // Users by tenant
+    users: [
+        {
+            id: 'kpanse',
+            name: 'Krishna Panse',
+            email: 'kpanse@cisco.com',
+            role: 'ADMIN',
+            tenantId: null  // Admin has access to all tenants
+        },
+        {
+            id: 'vtathe',
+            name: 'Vikarna Tathe',
+            email: 'vtathe@cisco.com',
+            role: 'TEAM_LEAD',
+            tenantId: 'jio'
+        },
+        {
+            id: 'rushisha',
+            name: 'Rushit Shah',
+            email: 'rushisha@cisco.com',
+            role: 'TEAM_LEAD',
+            tenantId: 'airtel'
+        }
+    ],
 
     // Deployment Locations (configurable per tenant)
     deploymentLocations: [
