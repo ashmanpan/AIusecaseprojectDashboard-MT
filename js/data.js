@@ -3,7 +3,7 @@
 
 const AppData = {
     // Current tenant
-    currentTenant: 'customer1',
+    currentTenant: 'jio',
     currentUser: {
         id: 'user1',
         name: 'John Doe',
@@ -13,8 +13,11 @@ const AppData = {
 
     // Tenants
     tenants: {
-        'customer1': { id: 'customer1', name: 'Customer Alpha' },
-        'customer2': { id: 'customer2', name: 'Customer Beta' }
+        'jio': { id: 'jio', name: 'Jio India' },
+        'airtel': { id: 'airtel', name: 'Airtel India - IP Transport' },
+        'ioh': { id: 'ioh', name: 'Indosat Ooredoo Hutchison (IOH) Indonesia' },
+        'optus': { id: 'optus', name: 'Optus Australia' },
+        'softbank': { id: 'softbank', name: 'SoftBank Japan' }
     },
 
     // Deployment Locations (configurable per tenant)
@@ -43,7 +46,7 @@ const AppData = {
             id: 'UC001',
             name: 'Incident Management',
             description: 'AI-powered incident management system for automated ticket classification, routing, and resolution suggestions.',
-            tenantId: 'customer1',
+            tenantId: 'jio',
             status: 'PENDING_LEAD_APPROVAL',
             deploymentLocation: 'LAB',
             lifecycleStage: 'INTERNAL_UNIT_TESTING',
@@ -63,7 +66,7 @@ const AppData = {
             id: 'UC002',
             name: 'RCA (Root Cause Analysis)',
             description: 'AI-driven root cause analysis for network incidents using ML pattern recognition.',
-            tenantId: 'customer1',
+            tenantId: 'jio',
             status: 'DRAFT',
             deploymentLocation: 'LAB',
             lifecycleStage: 'INTERNAL_UNIT_TESTING',
@@ -83,7 +86,7 @@ const AppData = {
             id: 'UC003',
             name: 'Customer Experience Management',
             description: 'AI analytics for customer experience insights and predictive satisfaction scoring.',
-            tenantId: 'customer1',
+            tenantId: 'jio',
             status: 'DRAFT',
             deploymentLocation: 'POC_CLOUD',
             lifecycleStage: 'INTERNAL_UNIT_TESTING',
@@ -103,7 +106,7 @@ const AppData = {
             id: 'UC004',
             name: 'Image Upgrade',
             description: 'Automated network device image upgrade with AI-based risk assessment.',
-            tenantId: 'customer1',
+            tenantId: 'jio',
             status: 'PENDING_CUSTOMER_APPROVAL',
             deploymentLocation: 'LAB',
             lifecycleStage: 'INTERNAL_UNIT_TESTING',
@@ -123,7 +126,7 @@ const AppData = {
             id: 'UC005',
             name: 'Toxic Factor Detection',
             description: 'AI model to detect and analyze toxic network behaviors and anomalies.',
-            tenantId: 'customer1',
+            tenantId: 'jio',
             status: 'DRAFT',
             deploymentLocation: 'LAB',
             lifecycleStage: 'INTERNAL_UNIT_TESTING',
@@ -143,7 +146,7 @@ const AppData = {
             id: 'UC006',
             name: 'Config Drift Detection',
             description: 'AI-based configuration drift detection and compliance monitoring.',
-            tenantId: 'customer1',
+            tenantId: 'jio',
             status: 'DRAFT',
             deploymentLocation: 'LAB',
             lifecycleStage: 'INTERNAL_UNIT_TESTING',
@@ -163,7 +166,7 @@ const AppData = {
             id: 'UC007',
             name: 'Audit Agent',
             description: 'AI-powered audit automation for network compliance and security checks.',
-            tenantId: 'customer1',
+            tenantId: 'jio',
             status: 'PENDING_LEAD_APPROVAL',
             deploymentLocation: 'LAB',
             lifecycleStage: 'INTERNAL_UNIT_TESTING',
@@ -183,7 +186,7 @@ const AppData = {
             id: 'UC008',
             name: 'Intent-Driven Configuration Deployment',
             description: 'AI-driven intent-based network configuration automation.',
-            tenantId: 'customer1',
+            tenantId: 'jio',
             status: 'CHANGES_REQUESTED',
             deploymentLocation: 'POC_CISCO_LAB',
             lifecycleStage: 'INTERNAL_UNIT_TESTING',
@@ -203,7 +206,7 @@ const AppData = {
             id: 'UC009',
             name: 'PSRIT Security Analysis & Mitigation',
             description: 'AI security vulnerability analysis and automated mitigation recommendations.',
-            tenantId: 'customer1',
+            tenantId: 'jio',
             status: 'DRAFT',
             deploymentLocation: 'LAB',
             lifecycleStage: 'INTERNAL_UNIT_TESTING',
@@ -223,7 +226,7 @@ const AppData = {
             id: 'UC010',
             name: 'Zero Trust Config Guardian',
             description: 'AI-based zero trust configuration validation and enforcement.',
-            tenantId: 'customer1',
+            tenantId: 'jio',
             status: 'APPROVED',
             deploymentLocation: 'PROD_NON_COMMERCIAL',
             lifecycleStage: 'DEPLOYED',
