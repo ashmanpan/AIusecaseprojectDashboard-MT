@@ -20,7 +20,10 @@
         <div class="header-right">
             <div class="user-menu">
                 <span id="userName">John Doe</span>
-                <span class="role-badge">Team Lead</span>
+                <span class="role-badge" id="userRole">Team Lead</span>
+                <button class="btn btn-sm btn-secondary" onclick="Auth.signOut()" title="Sign Out">
+                    <i class="fas fa-sign-out-alt"></i>
+                </button>
             </div>
         </div>
     </header>
@@ -297,8 +300,13 @@
         </div>
     </div>
 
-    <script src="js/amplify-config.js"></script>
+    <script src="js/auth.js"></script>
     <script src="js/data.js"></script>
     <script src="js/usecase.js"></script>
+    <script>
+        if (!Auth.isLoggedIn()) {
+            window.location.href = 'login.html';
+        }
+    </script>
 </body>
 </html>

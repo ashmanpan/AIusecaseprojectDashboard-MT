@@ -136,34 +136,10 @@
             <p>Sign in to your account</p>
         </div>
 
-        <div class="demo-notice">
-            <i class="fas fa-info-circle"></i>
-            <strong>Demo Mode:</strong> Click "Enter Demo" to explore the dashboard without AWS backend.
-        </div>
-
         <form class="login-form" id="loginForm" onsubmit="handleLogin(event)">
-            <div class="tenant-select">
-                <label for="tenant">Organization</label>
-                <select id="tenant">
-                    <option value="jio">Jio India</option>
-                    <option value="airtel">Airtel India - IP Transport</option>
-                    <option value="ioh">IOH Indonesia</option>
-                    <option value="optus">Optus Australia</option>
-                    <option value="softbank">SoftBank Japan</option>
-                    <option value="kddi">KDDI Japan</option>
-                    <option value="ntt">NTT Japan</option>
-                    <option value="telstra">Telstra Australia</option>
-                    <option value="nbn">NBN Australia</option>
-                    <option value="pldt">PLDT Philippines</option>
-                    <option value="globe">Globe Telecom Philippines</option>
-                    <option value="xl">XL Axiata Indonesia</option>
-                    <option value="smart">Smart Communications Philippines</option>
-                </select>
-            </div>
-
             <div class="form-group">
                 <label for="email">Email Address</label>
-                <input type="email" id="email" placeholder="you@company.com" required>
+                <input type="email" id="email" placeholder="you@cisco.com" required>
             </div>
 
             <div class="form-group">
@@ -174,10 +150,6 @@
             <button type="submit" class="login-btn">
                 <i class="fas fa-sign-in-alt"></i> Sign In
             </button>
-
-            <button type="button" class="demo-btn" onclick="enterDemo()">
-                <i class="fas fa-play-circle"></i> Enter Demo Mode
-            </button>
         </form>
 
         <div class="login-footer">
@@ -185,41 +157,111 @@
         </div>
     </div>
 
+    <script src="https://sdk.amazonaws.com/js/aws-sdk-2.1528.0.min.js"></script>
+    <script src="js/auth.js"></script>
     <script>
+        let pendingChallenge = null;
+
         async function handleLogin(event) {
             event.preventDefault();
 
             const email = document.getElementById('email').value;
             const password = document.getElementById('password').value;
-            const tenant = document.getElementById('tenant').value;
 
-            // Check if Amplify is configured
-            if (window.AmplifyAuth && window.isAmplifyConfigured) {
-                const result = await window.AmplifyAuth.signIn(email, password);
+            // Show loading state
+            const loginBtn = document.querySelector('.login-btn');
+            const originalText = loginBtn.innerHTML;
+            loginBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Signing in...';
+            loginBtn.disabled = true;
+
+            try {
+                const result = await Auth.signIn(email, password);
+
                 if (result.success) {
-                    localStorage.setItem('tenantId', tenant);
                     window.location.href = 'index.html';
+                } else if (result.challenge === 'NEW_PASSWORD_REQUIRED') {
+                    pendingChallenge = { email, session: result.session };
+                    showNewPasswordModal();
                 } else {
-                    alert('Login failed: ' + result.error);
+                    showError(result.error || 'Login failed');
                 }
-            } else {
-                // Demo mode - just redirect
-                enterDemo();
+            } catch (error) {
+                showError(error.message || 'Login failed');
+            } finally {
+                loginBtn.innerHTML = originalText;
+                loginBtn.disabled = false;
             }
         }
 
-        function enterDemo() {
-            const tenant = document.getElementById('tenant').value;
-            localStorage.setItem('tenantId', tenant);
-            localStorage.setItem('demoMode', 'true');
-            localStorage.setItem('demoUser', JSON.stringify({
-                id: 'user1',
-                name: 'John Doe',
-                email: 'john@example.com',
-                role: 'TEAM_LEAD',
-                tenantId: tenant
-            }));
-            window.location.href = 'index.html';
+        function showError(message) {
+            // Remove existing error
+            const existingError = document.querySelector('.error-message');
+            if (existingError) existingError.remove();
+
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'error-message';
+            errorDiv.style.cssText = 'background: #fee2e2; border: 1px solid #ef4444; color: #991b1b; padding: 1rem; border-radius: 8px; margin-bottom: 1rem;';
+            errorDiv.innerHTML = '<i class="fas fa-exclamation-circle"></i> ' + message;
+
+            const form = document.getElementById('loginForm');
+            form.insertBefore(errorDiv, form.firstChild);
+
+            setTimeout(() => errorDiv.remove(), 5000);
+        }
+
+        function showNewPasswordModal() {
+            const modal = document.createElement('div');
+            modal.id = 'newPasswordModal';
+            modal.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000;';
+            modal.innerHTML = `
+                <div style="background: white; padding: 2rem; border-radius: 12px; width: 90%; max-width: 400px;">
+                    <h2 style="margin-bottom: 1rem;">Set New Password</h2>
+                    <p style="color: #64748b; margin-bottom: 1.5rem;">You need to set a new password for your account.</p>
+                    <form onsubmit="handleNewPassword(event)">
+                        <div class="form-group">
+                            <label for="newPassword">New Password</label>
+                            <input type="password" id="newPassword" required minlength="8" placeholder="At least 8 characters">
+                        </div>
+                        <div class="form-group">
+                            <label for="confirmPassword">Confirm Password</label>
+                            <input type="password" id="confirmPassword" required placeholder="Confirm your password">
+                        </div>
+                        <button type="submit" class="login-btn" style="margin-top: 1rem;">
+                            <i class="fas fa-key"></i> Set Password
+                        </button>
+                    </form>
+                </div>
+            `;
+            document.body.appendChild(modal);
+        }
+
+        async function handleNewPassword(event) {
+            event.preventDefault();
+
+            const newPassword = document.getElementById('newPassword').value;
+            const confirmPassword = document.getElementById('confirmPassword').value;
+
+            if (newPassword !== confirmPassword) {
+                showError('Passwords do not match');
+                return;
+            }
+
+            if (newPassword.length < 8) {
+                showError('Password must be at least 8 characters');
+                return;
+            }
+
+            try {
+                const result = await Auth.setNewPassword(pendingChallenge.email, newPassword, pendingChallenge.session);
+
+                if (result.success) {
+                    window.location.href = 'index.html';
+                } else {
+                    showError(result.error || 'Failed to set password');
+                }
+            } catch (error) {
+                showError(error.message || 'Failed to set password');
+            }
         }
 
         function showSignupInfo() {
@@ -228,12 +270,10 @@
 
         // Check if already logged in
         document.addEventListener('DOMContentLoaded', function() {
-            if (localStorage.getItem('demoMode') === 'true') {
-                // Already in demo mode, redirect to dashboard
-                // window.location.href = 'index.html';
+            if (Auth.isLoggedIn()) {
+                window.location.href = 'index.html';
             }
         });
     </script>
-    <script src="js/amplify-config.js"></script>
 </body>
 </html>

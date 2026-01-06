@@ -31,7 +31,10 @@
             </select>
             <div class="user-menu">
                 <span id="userName">John Doe</span>
-                <span class="role-badge">Team Lead</span>
+                <span class="role-badge" id="userRole">Team Lead</span>
+                <button class="btn btn-sm btn-secondary" onclick="Auth.signOut()" title="Sign Out">
+                    <i class="fas fa-sign-out-alt"></i>
+                </button>
             </div>
         </div>
     </header>
@@ -84,6 +87,12 @@
         </section>
     </main>
 
+    <script src="js/auth.js"></script>
+    <script>
+        if (!Auth.isLoggedIn()) {
+            window.location.href = 'login.html';
+        }
+    </script>
     <script src="js/data.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function() {

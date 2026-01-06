@@ -1,16 +1,28 @@
 // Sample Data - This will be replaced with DynamoDB data
 // Multi-tenant data structure
 
+// Get logged-in user from session
+function getLoggedInUser() {
+    if (window.Auth && Auth.getCurrentUser) {
+        const user = Auth.getCurrentUser();
+        if (user) return user;
+    }
+    // Fallback for demo/development
+    return {
+        id: 'kpanse',
+        name: 'Krishna Panse',
+        email: 'kpanse@cisco.com',
+        role: 'ADMIN',
+        tenantId: null
+    };
+}
+
+const loggedInUser = getLoggedInUser();
+
 const AppData = {
-    // Current tenant
-    currentTenant: 'jio',
-    currentUser: {
-        id: 'vtathe',
-        name: 'Vikarna Tathe',
-        email: 'vtathe@cisco.com',
-        role: 'TEAM_LEAD',
-        tenantId: 'jio'
-    },
+    // Current tenant - use user's tenant or default to 'jio' for admin
+    currentTenant: loggedInUser.tenantId || 'jio',
+    currentUser: loggedInUser,
 
     // Tenants
     tenants: {
