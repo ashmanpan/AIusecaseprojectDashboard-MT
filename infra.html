@@ -113,18 +113,35 @@
         .action-btn.delete:hover {
             color: var(--danger-color);
         }
-        .add-item-row {
-            background: #f8fafc;
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(255,255,255,0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
         }
-        .add-item-row input {
-            width: 100%;
-            padding: 0.5rem;
-            border: 1px solid var(--border-color);
-            border-radius: 4px;
+        .loading-overlay.hidden {
+            display: none;
+        }
+        .loading-spinner {
+            font-size: 2rem;
+            color: var(--primary-color);
         }
     </style>
 </head>
 <body>
+    <!-- Loading Overlay -->
+    <div id="loadingOverlay" class="loading-overlay">
+        <div class="loading-spinner">
+            <i class="fas fa-spinner fa-spin"></i> Loading...
+        </div>
+    </div>
+
     <header class="header">
         <div class="header-left">
             <h1><i class="fas fa-server"></i> Infra Readiness</h1>
@@ -146,8 +163,8 @@
                 <option value="smart">Smart Communications Philippines</option>
             </select>
             <div class="user-menu">
-                <span id="userName">John Doe</span>
-                <span class="role-badge" id="userRole">Team Lead</span>
+                <span id="userName">Loading...</span>
+                <span class="role-badge" id="userRole">...</span>
                 <button class="btn btn-sm btn-secondary" onclick="Auth.signOut()" title="Sign Out">
                     <i class="fas fa-sign-out-alt"></i>
                 </button>
@@ -192,8 +209,8 @@
 
         <!-- Tabs -->
         <div class="infra-tabs">
-            <button class="infra-tab active" onclick="switchTab('lab')">Lab Readiness</button>
-            <button class="infra-tab" onclick="switchTab('field')">Field Readiness</button>
+            <button class="infra-tab active" id="tabLab" onclick="switchTab('lab')">Lab Readiness</button>
+            <button class="infra-tab" id="tabField" onclick="switchTab('field')">Field Readiness</button>
         </div>
 
         <!-- Table Section -->
@@ -203,9 +220,6 @@
                 <div class="table-actions">
                     <button class="btn btn-primary btn-sm" onclick="addNewItem()">
                         <i class="fas fa-plus"></i> Add Item
-                    </button>
-                    <button class="btn btn-secondary btn-sm" onclick="saveChanges()">
-                        <i class="fas fa-save"></i> Save Changes
                     </button>
                 </div>
             </div>
@@ -223,7 +237,7 @@
                         </tr>
                     </thead>
                     <tbody id="infraTableBody">
-                        <!-- Populated by JavaScript -->
+                        <tr><td colspan="7" class="text-center">Loading...</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -236,7 +250,7 @@
             <span class="close" onclick="closeModal('itemModal')">&times;</span>
             <h2 id="modalTitle">Add New Item</h2>
             <form id="itemForm" onsubmit="saveItem(event)">
-                <input type="hidden" id="itemId">
+                <input type="hidden" id="editItemId">
                 <div class="form-group">
                     <label for="itemDescription">Action Item *</label>
                     <input type="text" id="itemDescription" required placeholder="Enter action item description">
@@ -273,6 +287,8 @@
         </div>
     </div>
 
+    <!-- AWS SDK -->
+    <script src="https://sdk.amazonaws.com/js/aws-sdk-2.1528.0.min.js"></script>
     <script src="js/auth.js"></script>
     <script>
         if (!Auth.isLoggedIn()) {
@@ -280,28 +296,29 @@
         }
     </script>
     <script src="js/data.js"></script>
+    <script src="js/dynamodb.js"></script>
     <script>
         let currentTab = 'lab';
-        let infraData = {
-            lab: [],
-            field: []
-        };
+        let currentTenant = 'jio';
+        let infraItems = [];
 
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', async function() {
             // Update user info
             const user = Auth.getCurrentUser();
             if (user) {
                 document.getElementById('userName').textContent = user.name;
                 document.getElementById('userRole').textContent = formatRole(user.role);
+                currentTenant = user.tenantId || 'jio';
+
                 if (user.role !== 'ADMIN') {
                     document.getElementById('tenantSelector').style.display = 'none';
+                } else {
+                    document.getElementById('tenantSelector').value = currentTenant;
                 }
             }
 
-            // Load infra data
-            loadInfraData();
-            renderTable();
-            updateProgressSummary();
+            // Load data from DynamoDB
+            await loadInfraData();
         });
 
         function formatRole(role) {
@@ -315,103 +332,49 @@
             return roleMap[role] || role;
         }
 
-        function loadInfraData() {
-            // Load from localStorage or use defaults
-            const savedData = localStorage.getItem('infraData_' + AppData.currentTenant);
-            if (savedData) {
-                infraData = JSON.parse(savedData);
-            } else {
-                // Initialize with default items
-                infraData = getDefaultInfraData();
-                saveToStorage();
+        async function loadInfraData() {
+            showLoading(true);
+            try {
+                infraItems = await InfraDB.getItems(currentTenant, currentTab);
+                renderTable();
+                await updateProgressSummary();
+            } catch (error) {
+                console.error('Error loading data:', error);
+                showNotification('Error loading data: ' + error.message, 'danger');
+            } finally {
+                showLoading(false);
             }
         }
 
-        function getDefaultInfraData() {
-            return {
-                lab: [
-                    { id: 1, description: 'Config push from NSO', owner: '@Sai', dueDate: '', status: 'NOT_STARTED', remarks: '' },
-                    { id: 2, description: 'CDG Connectivity & discoverable, data collection', owner: '@Sai', dueDate: '', status: 'NOT_STARTED', remarks: '' },
-                    { id: 3, description: 'Topology visualization must be possible', owner: '@Sai', dueDate: '', status: 'NOT_STARTED', remarks: '' },
-                    { id: 4, description: 'CWM must be connected to all devices', owner: '@Sai', dueDate: '', status: 'NOT_STARTED', remarks: '' },
-                    { id: 5, description: 'OS Image must be possible to upload on all devices (NCS 540)', owner: '@Sai', dueDate: '', status: 'NOT_STARTED', remarks: '' },
-                    { id: 6, description: 'SR-PCE connection with help of BGP-LS', owner: '@Sai', dueDate: '', status: 'NOT_STARTED', remarks: '' },
-                    { id: 7, description: 'CDG data (Inventory, PM, CLI) collected must be able to be shared on external Kafka', owner: '@Sai', dueDate: '', status: 'NOT_STARTED', remarks: '' },
-                    { id: 8, description: 'FM data must be able to be shared on external Kafka', owner: '@Sai', dueDate: '', status: 'NOT_STARTED', remarks: '' },
-                    { id: 9, description: 'CNC - PCA Integration', owner: '@Sai', dueDate: '', status: 'NOT_STARTED', remarks: '' },
-                    { id: 10, description: 'CNC - HCO Integration', owner: '@Sai', dueDate: '', status: 'NOT_STARTED', remarks: '' },
-                    { id: 11, description: 'Brown-field service discovery using NSO', owner: '@Sai', dueDate: '', status: 'NOT_STARTED', remarks: '' },
-                    { id: 12, description: 'Service visualization using CNC', owner: '@Sai', dueDate: '', status: 'NOT_STARTED', remarks: '' },
-                    { id: 13, description: 'Service health in CNC', owner: '@Sai', dueDate: '', status: 'NOT_STARTED', remarks: '' },
-                    { id: 14, description: 'SR-PCE must be able to deploy tunnels in the network using API', owner: '@Sai', dueDate: '', status: 'NOT_STARTED', remarks: '' },
-                    { id: 15, description: 'Sensor deployment & visualization in PCA', owner: '@Sai', dueDate: '', status: 'NOT_STARTED', remarks: '' },
-                    { id: 16, description: 'Fault correlation in PCA', owner: '@Sai', dueDate: '', status: 'NOT_STARTED', remarks: '' },
-                    { id: 17, description: 'Existing fault-tickets data, RFO & MOP for resolution (processes, etc.)', owner: '@Rushit', dueDate: '', status: 'NOT_STARTED', remarks: '' },
-                    { id: 18, description: 'Confirmation for above points from Sai R', owner: '@Sai', dueDate: '', status: 'NOT_STARTED', remarks: '' },
-                    { id: 19, description: 'Validation check for above points from Supriya S', owner: '@Supriya, @Hemant', dueDate: '', status: 'NOT_STARTED', remarks: '' },
-                    { id: 20, description: 'Agreement on test-cases based on received fault-tickets', owner: '@Rushit, @Hemant', dueDate: '2024-12-23', status: 'NOT_STARTED', remarks: '' },
-                    { id: 21, description: 'Deployment of Fault-Injection service', owner: '@Rushit, @Krishna, @Vikarna', dueDate: '2024-12-23', status: 'NOT_STARTED', remarks: '' }
-                ],
-                field: [
-                    { id: 1, description: 'Identify the network devices for field-trial IP + Optical', owner: '@Hemant', dueDate: '', status: 'NOT_STARTED', remarks: '' },
-                    { id: 2, description: 'Identify the hardware requirement for ear-marked field-trial', owner: '@Hemant', dueDate: '', status: 'NOT_STARTED', remarks: '' },
-                    { id: 3, description: 'Deployment of production apps (CNC, HCO, PCA, Agentic platform, etc.)', owner: '@Sai, @Hemant, @Supriya', dueDate: '', status: 'NOT_STARTED', remarks: '' },
-                    { id: 4, description: 'Deployment of config on network devices for apps reachability', owner: '@Sai', dueDate: '', status: 'NOT_STARTED', remarks: '' },
-                    { id: 5, description: 'CDG Connectivity & discoverable, data collection', owner: '@Sai', dueDate: '', status: 'NOT_STARTED', remarks: '' },
-                    { id: 6, description: 'Topology visualization must be possible', owner: '@Sai', dueDate: '', status: 'NOT_STARTED', remarks: '' },
-                    { id: 7, description: 'CWM must be connected to all devices', owner: '@Sai', dueDate: '', status: 'NOT_STARTED', remarks: '' },
-                    { id: 8, description: 'OS Image must be possible to upload on all devices (NCS 540)', owner: '@Sai', dueDate: '', status: 'NOT_STARTED', remarks: '' },
-                    { id: 9, description: 'SR-PCE connection with help of BGP-LS', owner: '@Sai', dueDate: '', status: 'NOT_STARTED', remarks: '' },
-                    { id: 10, description: 'CDG data (Inventory, PM, CLI) collected must be able to be shared on external Kafka', owner: '@Sai', dueDate: '', status: 'NOT_STARTED', remarks: '' },
-                    { id: 11, description: 'FM data must be able to be shared on external Kafka', owner: '@Sai', dueDate: '', status: 'NOT_STARTED', remarks: '' },
-                    { id: 12, description: 'CNC - PCA Integration', owner: '@Sai', dueDate: '', status: 'NOT_STARTED', remarks: '' },
-                    { id: 13, description: 'CNC - HCO Integration', owner: '@Sai', dueDate: '', status: 'NOT_STARTED', remarks: '' },
-                    { id: 14, description: 'Brown-field service discovery using NSO', owner: '@Sai', dueDate: '', status: 'NOT_STARTED', remarks: '' },
-                    { id: 15, description: 'Config push from NSO', owner: '@Sai', dueDate: '', status: 'NOT_STARTED', remarks: '' },
-                    { id: 16, description: 'Service visualization using CNC', owner: '@Sai', dueDate: '', status: 'NOT_STARTED', remarks: '' },
-                    { id: 17, description: 'Service health in CNC', owner: '@Sai', dueDate: '', status: 'NOT_STARTED', remarks: '' },
-                    { id: 18, description: 'SR-PCE must be able to deploy tunnels in the network using API', owner: '@Sai', dueDate: '', status: 'NOT_STARTED', remarks: '' },
-                    { id: 19, description: 'Sensor deployment & visualization in PCA', owner: '@Sai', dueDate: '', status: 'NOT_STARTED', remarks: '' },
-                    { id: 20, description: 'Fault correlation in PCA', owner: '@Sai', dueDate: '', status: 'NOT_STARTED', remarks: '' },
-                    { id: 21, description: 'Confirmation for above points from Sai R', owner: '@Sai', dueDate: '', status: 'NOT_STARTED', remarks: '' },
-                    { id: 22, description: 'Validation check for above points from Supriya S', owner: '@Supriya, @Hemant', dueDate: '', status: 'NOT_STARTED', remarks: '' },
-                    { id: 23, description: 'Existing fault-tickets data, RFO & MOP for resolution (processes, etc.)', owner: '@Rushit', dueDate: '2024-12-23', status: 'NOT_STARTED', remarks: '' },
-                    { id: 24, description: 'Agreement on test-cases based on received fault-tickets', owner: '@Rushit, @Hemant', dueDate: '2024-12-23', status: 'NOT_STARTED', remarks: '' },
-                    { id: 25, description: 'Deployment of Fault-Injection service', owner: '', dueDate: '', status: 'NOT_STARTED', remarks: '' }
-                ]
-            };
-        }
-
-        function saveToStorage() {
-            localStorage.setItem('infraData_' + AppData.currentTenant, JSON.stringify(infraData));
-        }
-
-        function switchTab(tab) {
+        async function switchTab(tab) {
             currentTab = tab;
             document.querySelectorAll('.infra-tab').forEach(t => t.classList.remove('active'));
-            event.target.classList.add('active');
+            document.getElementById('tab' + tab.charAt(0).toUpperCase() + tab.slice(1)).classList.add('active');
             document.getElementById('tableTitle').textContent =
                 tab === 'lab' ? 'Lab Readiness Action Items' : 'Field Readiness Action Items';
-            renderTable();
-            updateProgressSummary();
+            await loadInfraData();
         }
 
         function renderTable() {
             const tbody = document.getElementById('infraTableBody');
-            const items = infraData[currentTab];
 
-            tbody.innerHTML = items.map((item, index) => `
+            if (infraItems.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" class="text-center">No items found</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = infraItems.map((item, index) => `
                 <tr>
                     <td>${index + 1}</td>
                     <td>${item.description}</td>
                     <td><span class="owner-tag">${item.owner || '-'}</span></td>
                     <td>
-                        <input type="date" class="date-input" value="${item.dueDate}"
-                               onchange="updateItem(${item.id}, 'dueDate', this.value)">
+                        <input type="date" class="date-input" value="${item.dueDate || ''}"
+                               onchange="updateItemField('${item.itemId}', 'dueDate', this.value)">
                     </td>
                     <td>
                         <select class="status-select status-${item.status}"
-                                onchange="updateItem(${item.id}, 'status', this.value); this.className='status-select status-'+this.value;">
+                                onchange="updateItemField('${item.itemId}', 'status', this.value); this.className='status-select status-'+this.value;">
                             <option value="NOT_STARTED" ${item.status === 'NOT_STARTED' ? 'selected' : ''}>Not Started</option>
                             <option value="IN_PROGRESS" ${item.status === 'IN_PROGRESS' ? 'selected' : ''}>In Progress</option>
                             <option value="COMPLETED" ${item.status === 'COMPLETED' ? 'selected' : ''}>Completed</option>
@@ -422,13 +385,13 @@
                     <td>
                         <input type="text" class="remarks-input" value="${item.remarks || ''}"
                                placeholder="Add remarks..."
-                               onchange="updateItem(${item.id}, 'remarks', this.value)">
+                               onchange="updateItemField('${item.itemId}', 'remarks', this.value)">
                     </td>
                     <td>
-                        <button class="action-btn" onclick="editItem(${item.id})" title="Edit">
+                        <button class="action-btn" onclick="editItem('${item.itemId}')" title="Edit">
                             <i class="fas fa-edit"></i>
                         </button>
-                        <button class="action-btn delete" onclick="deleteItem(${item.id})" title="Delete">
+                        <button class="action-btn delete" onclick="deleteItem('${item.itemId}')" title="Delete">
                             <i class="fas fa-trash"></i>
                         </button>
                     </td>
@@ -436,56 +399,60 @@
             `).join('');
         }
 
-        function updateItem(id, field, value) {
-            const item = infraData[currentTab].find(i => i.id === id);
-            if (item) {
-                item[field] = value;
-                saveToStorage();
-                if (field === 'status') {
-                    updateProgressSummary();
+        async function updateItemField(itemId, field, value) {
+            try {
+                const updates = {};
+                updates[field] = value;
+                const result = await InfraDB.updateItem(currentTenant, itemId, updates);
+                if (result.success) {
+                    // Update local data
+                    const item = infraItems.find(i => i.itemId === itemId);
+                    if (item) item[field] = value;
+                    if (field === 'status') {
+                        await updateProgressSummary();
+                    }
+                } else {
+                    showNotification('Error updating: ' + result.error, 'danger');
                 }
+            } catch (error) {
+                console.error('Update error:', error);
+                showNotification('Error updating item', 'danger');
             }
         }
 
-        function updateProgressSummary() {
-            const items = infraData[currentTab];
-            const total = items.length;
-            const completed = items.filter(i => i.status === 'COMPLETED').length;
-            const inProgress = items.filter(i => i.status === 'IN_PROGRESS').length;
-            const blocked = items.filter(i => i.status === 'BLOCKED').length;
-            const notStarted = items.filter(i => i.status === 'NOT_STARTED').length;
-
-            document.getElementById('totalCount').textContent = total;
-            document.getElementById('completedCount').textContent = completed;
-            document.getElementById('inProgressCount').textContent = inProgress;
-            document.getElementById('blockedCount').textContent = blocked;
-            document.getElementById('notStartedCount').textContent = notStarted;
+        async function updateProgressSummary() {
+            const summary = await InfraDB.getSummary(currentTenant, currentTab);
+            document.getElementById('totalCount').textContent = summary.total;
+            document.getElementById('completedCount').textContent = summary.completed;
+            document.getElementById('inProgressCount').textContent = summary.inProgress;
+            document.getElementById('blockedCount').textContent = summary.blocked;
+            document.getElementById('notStartedCount').textContent = summary.notStarted;
         }
 
         function addNewItem() {
             document.getElementById('modalTitle').textContent = 'Add New Item';
             document.getElementById('itemForm').reset();
-            document.getElementById('itemId').value = '';
+            document.getElementById('editItemId').value = '';
             document.getElementById('itemModal').classList.add('active');
         }
 
-        function editItem(id) {
-            const item = infraData[currentTab].find(i => i.id === id);
+        function editItem(itemId) {
+            const item = infraItems.find(i => i.itemId === itemId);
             if (item) {
                 document.getElementById('modalTitle').textContent = 'Edit Item';
-                document.getElementById('itemId').value = id;
+                document.getElementById('editItemId').value = itemId;
                 document.getElementById('itemDescription').value = item.description;
-                document.getElementById('itemOwner').value = item.owner;
-                document.getElementById('itemDueDate').value = item.dueDate;
+                document.getElementById('itemOwner').value = item.owner || '';
+                document.getElementById('itemDueDate').value = item.dueDate || '';
                 document.getElementById('itemStatus').value = item.status;
-                document.getElementById('itemRemarks').value = item.remarks;
+                document.getElementById('itemRemarks').value = item.remarks || '';
                 document.getElementById('itemModal').classList.add('active');
             }
         }
 
-        function saveItem(event) {
+        async function saveItem(event) {
             event.preventDefault();
-            const id = document.getElementById('itemId').value;
+            const itemId = document.getElementById('editItemId').value;
             const itemData = {
                 description: document.getElementById('itemDescription').value,
                 owner: document.getElementById('itemOwner').value,
@@ -494,50 +461,65 @@
                 remarks: document.getElementById('itemRemarks').value
             };
 
-            if (id) {
-                // Edit existing
-                const item = infraData[currentTab].find(i => i.id === parseInt(id));
-                if (item) {
-                    Object.assign(item, itemData);
+            showLoading(true);
+            try {
+                let result;
+                if (itemId) {
+                    // Update existing
+                    result = await InfraDB.updateItem(currentTenant, itemId, itemData);
+                } else {
+                    // Add new
+                    result = await InfraDB.addItem(currentTenant, currentTab, itemData);
                 }
-            } else {
-                // Add new
-                const maxId = Math.max(...infraData[currentTab].map(i => i.id), 0);
-                infraData[currentTab].push({
-                    id: maxId + 1,
-                    ...itemData
-                });
-            }
 
-            saveToStorage();
-            renderTable();
-            updateProgressSummary();
-            closeModal('itemModal');
+                if (result.success) {
+                    closeModal('itemModal');
+                    await loadInfraData();
+                    showNotification(itemId ? 'Item updated successfully' : 'Item added successfully', 'success');
+                } else {
+                    showNotification('Error: ' + result.error, 'danger');
+                }
+            } catch (error) {
+                console.error('Save error:', error);
+                showNotification('Error saving item', 'danger');
+            } finally {
+                showLoading(false);
+            }
         }
 
-        function deleteItem(id) {
+        async function deleteItem(itemId) {
             if (confirm('Are you sure you want to delete this item?')) {
-                infraData[currentTab] = infraData[currentTab].filter(i => i.id !== id);
-                saveToStorage();
-                renderTable();
-                updateProgressSummary();
+                showLoading(true);
+                try {
+                    const result = await InfraDB.deleteItem(currentTenant, itemId);
+                    if (result.success) {
+                        await loadInfraData();
+                        showNotification('Item deleted successfully', 'success');
+                    } else {
+                        showNotification('Error: ' + result.error, 'danger');
+                    }
+                } catch (error) {
+                    console.error('Delete error:', error);
+                    showNotification('Error deleting item', 'danger');
+                } finally {
+                    showLoading(false);
+                }
             }
-        }
-
-        function saveChanges() {
-            saveToStorage();
-            showNotification('Changes saved successfully!', 'success');
         }
 
         function closeModal(modalId) {
             document.getElementById(modalId).classList.remove('active');
         }
 
+        function showLoading(show) {
+            document.getElementById('loadingOverlay').classList.toggle('hidden', !show);
+        }
+
         function showNotification(message, type) {
             const notification = document.createElement('div');
             notification.className = `notification ${type}`;
             notification.innerHTML = `
-                <i class="fas ${type === 'success' ? 'fa-check-circle' : 'fa-info-circle'}"></i>
+                <i class="fas ${type === 'success' ? 'fa-check-circle' : type === 'danger' ? 'fa-exclamation-circle' : 'fa-info-circle'}"></i>
                 <span>${message}</span>
             `;
             document.body.appendChild(notification);
@@ -547,6 +529,12 @@
                 setTimeout(() => notification.remove(), 300);
             }, 3000);
         }
+
+        // Tenant selector change
+        document.getElementById('tenantSelector').addEventListener('change', async function(e) {
+            currentTenant = e.target.value;
+            await loadInfraData();
+        });
 
         // Close modal when clicking outside
         window.onclick = function(event) {
