@@ -5,10 +5,19 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 function initDashboard() {
-    updateStats();
-    renderUseCasesTable();
-    renderRecentActivity();
-    initCharts();
+    // Only run functions if elements exist
+    if (document.getElementById('totalUseCases')) {
+        updateStats();
+    }
+    if (document.getElementById('useCasesTableBody')) {
+        renderUseCasesTable();
+    }
+    if (document.getElementById('activityList')) {
+        renderRecentActivity();
+    }
+    if (document.getElementById('deploymentChart')) {
+        initCharts();
+    }
     setupEventListeners();
 }
 
@@ -23,8 +32,10 @@ function updateStats() {
 }
 
 // Render use cases table
-function renderUseCasesTable(filter = '', statusFilter = '') {
+function renderUseCasesTable(filter = '', statusFilter = '', stageFilter = '') {
     const tbody = document.getElementById('useCasesTableBody');
+    if (!tbody) return;
+
     let useCases = AppData.useCases.filter(uc => uc.tenantId === AppData.currentTenant);
 
     // Apply search filter
@@ -39,6 +50,11 @@ function renderUseCasesTable(filter = '', statusFilter = '') {
     // Apply status filter
     if (statusFilter) {
         useCases = useCases.filter(uc => uc.status === statusFilter);
+    }
+
+    // Apply stage filter
+    if (stageFilter) {
+        useCases = useCases.filter(uc => uc.lifecycleStage.includes(stageFilter));
     }
 
     tbody.innerHTML = useCases.map((uc, index) => `
@@ -241,22 +257,43 @@ function initCharts() {
 // Setup event listeners
 function setupEventListeners() {
     // Search
-    document.getElementById('searchInput').addEventListener('input', function(e) {
-        const statusFilter = document.getElementById('statusFilter').value;
-        renderUseCasesTable(e.target.value, statusFilter);
-    });
+    const searchInput = document.getElementById('searchInput');
+    if (searchInput) {
+        searchInput.addEventListener('input', function(e) {
+            const statusFilter = document.getElementById('statusFilter')?.value || '';
+            const stageFilter = document.getElementById('stageFilter')?.value || '';
+            renderUseCasesTable(e.target.value, statusFilter, stageFilter);
+        });
+    }
 
     // Status filter
-    document.getElementById('statusFilter').addEventListener('change', function(e) {
-        const searchFilter = document.getElementById('searchInput').value;
-        renderUseCasesTable(searchFilter, e.target.value);
-    });
+    const statusFilter = document.getElementById('statusFilter');
+    if (statusFilter) {
+        statusFilter.addEventListener('change', function(e) {
+            const searchFilter = document.getElementById('searchInput')?.value || '';
+            const stageFilter = document.getElementById('stageFilter')?.value || '';
+            renderUseCasesTable(searchFilter, e.target.value, stageFilter);
+        });
+    }
+
+    // Stage filter
+    const stageFilter = document.getElementById('stageFilter');
+    if (stageFilter) {
+        stageFilter.addEventListener('change', function(e) {
+            const searchFilter = document.getElementById('searchInput')?.value || '';
+            const statusFilterVal = document.getElementById('statusFilter')?.value || '';
+            renderUseCasesTable(searchFilter, statusFilterVal, e.target.value);
+        });
+    }
 
     // Tenant selector
-    document.getElementById('tenantSelector').addEventListener('change', function(e) {
-        AppData.currentTenant = e.target.value;
-        initDashboard();
-    });
+    const tenantSelector = document.getElementById('tenantSelector');
+    if (tenantSelector) {
+        tenantSelector.addEventListener('change', function(e) {
+            AppData.currentTenant = e.target.value;
+            initDashboard();
+        });
+    }
 }
 
 // Modal functions
