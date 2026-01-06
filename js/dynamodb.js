@@ -19,11 +19,17 @@ const DYNAMODB_CONFIG = {
 async function initAWS() {
     AWS.config.region = DYNAMODB_CONFIG.region;
 
+    // Get fresh token (with auto-refresh if expired)
+    const idToken = await Auth.getIdTokenAsync();
+    if (!idToken) {
+        throw new Error('No valid authentication token');
+    }
+
     // Use Cognito Identity Pool for credentials
     AWS.config.credentials = new AWS.CognitoIdentityCredentials({
         IdentityPoolId: 'us-east-1:7c65518c-36e2-4875-93f8-801596906b5b',
         Logins: {
-            ['cognito-idp.us-east-1.amazonaws.com/us-east-1_tZmFVKf4w']: Auth.getIdToken()
+            ['cognito-idp.us-east-1.amazonaws.com/us-east-1_tZmFVKf4w']: idToken
         }
     });
 
@@ -31,13 +37,57 @@ async function initAWS() {
     return new AWS.DynamoDB.DocumentClient();
 }
 
-// Get DynamoDB client
+// Track last credential refresh time
+let lastCredentialRefresh = 0;
+const CREDENTIAL_REFRESH_INTERVAL = 45 * 60 * 1000; // Refresh every 45 minutes
+
+// Get DynamoDB client (with credential refresh)
 let docClient = null;
 async function getDocClient() {
-    if (!docClient) {
+    const now = Date.now();
+
+    // Check if we need to refresh credentials
+    if (!docClient || (now - lastCredentialRefresh) > CREDENTIAL_REFRESH_INTERVAL || Auth.isTokenExpired()) {
+        // Clear old credentials to force refresh
+        if (AWS.config.credentials) {
+            AWS.config.credentials.clearCachedId();
+        }
         docClient = await initAWS();
+        lastCredentialRefresh = now;
     }
     return docClient;
+}
+
+// Reset client (call this on auth errors)
+function resetDocClient() {
+    docClient = null;
+    lastCredentialRefresh = 0;
+    if (AWS.config.credentials) {
+        AWS.config.credentials.clearCachedId();
+    }
+}
+
+/**
+ * Helper to execute DynamoDB operation with credential retry
+ */
+async function executeWithRetry(operation, retryCount = 1) {
+    try {
+        return await operation();
+    } catch (error) {
+        // Check if it's a credential/auth error
+        if (retryCount > 0 && (
+            error.code === 'CredentialsError' ||
+            error.code === 'ExpiredTokenException' ||
+            error.code === 'NotAuthorizedException' ||
+            error.message?.includes('credentials') ||
+            error.message?.includes('token')
+        )) {
+            console.log('Credential error, refreshing and retrying...');
+            resetDocClient();
+            return executeWithRetry(operation, retryCount - 1);
+        }
+        throw error;
+    }
 }
 
 /**
@@ -46,72 +96,70 @@ async function getDocClient() {
 const InfraDB = {
     // Get all items for a tenant and category
     async getItems(tenantId, category) {
-        const client = await getDocClient();
-        const params = {
-            TableName: DYNAMODB_CONFIG.tables.infraReadiness,
-            KeyConditionExpression: 'tenantId = :tid AND begins_with(itemId, :cat)',
-            ExpressionAttributeValues: {
-                ':tid': tenantId,
-                ':cat': category + '#'
-            }
-        };
+        return executeWithRetry(async () => {
+            const client = await getDocClient();
+            const params = {
+                TableName: DYNAMODB_CONFIG.tables.infraReadiness,
+                KeyConditionExpression: 'tenantId = :tid AND begins_with(itemId, :cat)',
+                ExpressionAttributeValues: {
+                    ':tid': tenantId,
+                    ':cat': category + '#'
+                }
+            };
 
-        try {
             const result = await client.query(params).promise();
             return result.Items.sort((a, b) => a.itemNumber - b.itemNumber);
-        } catch (error) {
+        }).catch(error => {
             console.error('Error fetching infra items:', error);
             return [];
-        }
+        });
     },
 
     // Update an item
     async updateItem(tenantId, itemId, updates) {
-        const client = await getDocClient();
+        return executeWithRetry(async () => {
+            const client = await getDocClient();
 
-        const updateExpressions = [];
-        const expressionAttributeNames = {};
-        const expressionAttributeValues = {
-            ':updatedAt': new Date().toISOString()
-        };
+            const updateExpressions = [];
+            const expressionAttributeNames = {};
+            const expressionAttributeValues = {
+                ':updatedAt': new Date().toISOString()
+            };
 
-        Object.keys(updates).forEach(key => {
-            if (key !== 'tenantId' && key !== 'itemId') {
-                updateExpressions.push(`#${key} = :${key}`);
-                expressionAttributeNames[`#${key}`] = key;
-                expressionAttributeValues[`:${key}`] = updates[key];
-            }
-        });
+            Object.keys(updates).forEach(key => {
+                if (key !== 'tenantId' && key !== 'itemId') {
+                    updateExpressions.push(`#${key} = :${key}`);
+                    expressionAttributeNames[`#${key}`] = key;
+                    expressionAttributeValues[`:${key}`] = updates[key];
+                }
+            });
 
-        updateExpressions.push('#updatedAt = :updatedAt');
-        expressionAttributeNames['#updatedAt'] = 'updatedAt';
+            updateExpressions.push('#updatedAt = :updatedAt');
+            expressionAttributeNames['#updatedAt'] = 'updatedAt';
 
-        const params = {
-            TableName: DYNAMODB_CONFIG.tables.infraReadiness,
-            Key: {
-                tenantId: tenantId,
-                itemId: itemId
-            },
-            UpdateExpression: 'SET ' + updateExpressions.join(', '),
-            ExpressionAttributeNames: expressionAttributeNames,
-            ExpressionAttributeValues: expressionAttributeValues,
-            ReturnValues: 'ALL_NEW'
-        };
+            const params = {
+                TableName: DYNAMODB_CONFIG.tables.infraReadiness,
+                Key: {
+                    tenantId: tenantId,
+                    itemId: itemId
+                },
+                UpdateExpression: 'SET ' + updateExpressions.join(', '),
+                ExpressionAttributeNames: expressionAttributeNames,
+                ExpressionAttributeValues: expressionAttributeValues,
+                ReturnValues: 'ALL_NEW'
+            };
 
-        try {
             const result = await client.update(params).promise();
             return { success: true, item: result.Attributes };
-        } catch (error) {
+        }).catch(error => {
             console.error('Error updating item:', error);
             return { success: false, error: error.message };
-        }
+        });
     },
 
     // Add new item
     async addItem(tenantId, category, itemData) {
-        const client = await getDocClient();
-
-        // Get next item number
+        // Get next item number first
         const existingItems = await this.getItems(tenantId, category);
         const maxNumber = existingItems.reduce((max, item) => Math.max(max, item.itemNumber || 0), 0);
         const newNumber = maxNumber + 1;
@@ -131,38 +179,39 @@ const InfraDB = {
             updatedAt: now
         };
 
-        const params = {
-            TableName: DYNAMODB_CONFIG.tables.infraReadiness,
-            Item: item
-        };
+        return executeWithRetry(async () => {
+            const client = await getDocClient();
+            const params = {
+                TableName: DYNAMODB_CONFIG.tables.infraReadiness,
+                Item: item
+            };
 
-        try {
             await client.put(params).promise();
             return { success: true, item: item };
-        } catch (error) {
+        }).catch(error => {
             console.error('Error adding item:', error);
             return { success: false, error: error.message };
-        }
+        });
     },
 
     // Delete item
     async deleteItem(tenantId, itemId) {
-        const client = await getDocClient();
-        const params = {
-            TableName: DYNAMODB_CONFIG.tables.infraReadiness,
-            Key: {
-                tenantId: tenantId,
-                itemId: itemId
-            }
-        };
+        return executeWithRetry(async () => {
+            const client = await getDocClient();
+            const params = {
+                TableName: DYNAMODB_CONFIG.tables.infraReadiness,
+                Key: {
+                    tenantId: tenantId,
+                    itemId: itemId
+                }
+            };
 
-        try {
             await client.delete(params).promise();
             return { success: true };
-        } catch (error) {
+        }).catch(error => {
             console.error('Error deleting item:', error);
             return { success: false, error: error.message };
-        }
+        });
     },
 
     // Get summary counts
@@ -182,4 +231,5 @@ const InfraDB = {
 // Export
 window.InfraDB = InfraDB;
 window.getDocClient = getDocClient;
+window.resetDocClient = resetDocClient;
 window.DYNAMODB_CONFIG = DYNAMODB_CONFIG;
