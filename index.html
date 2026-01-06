@@ -13,6 +13,149 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <!-- AWS SDK -->
     <script src="https://sdk.amazonaws.com/js/aws-sdk-2.1528.0.min.js"></script>
+    <style>
+        /* Sales Process Widget Styles */
+        .sales-process-section {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 12px;
+            padding: 1.25rem;
+            margin-bottom: 1.5rem;
+            color: white;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }
+        .sales-process-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+        .sales-process-header h2 {
+            margin: 0;
+            font-size: 1.1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .current-stage-badge {
+            background: rgba(255,255,255,0.2);
+            padding: 0.35rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 500;
+        }
+        .sales-process-container {
+            position: relative;
+        }
+        .sales-progress-bar {
+            height: 6px;
+            background: rgba(255,255,255,0.2);
+            border-radius: 3px;
+            margin-bottom: 0.75rem;
+            overflow: hidden;
+        }
+        .sales-progress-fill {
+            height: 100%;
+            background: #4ade80;
+            border-radius: 3px;
+            transition: width 0.5s ease;
+        }
+        .sales-stages {
+            display: flex;
+            justify-content: space-between;
+            gap: 0.25rem;
+            overflow-x: auto;
+            padding-bottom: 0.5rem;
+        }
+        .sales-stage {
+            flex: 1;
+            min-width: 80px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            padding: 0.5rem 0.25rem;
+            border-radius: 8px;
+        }
+        .sales-stage:hover {
+            background: rgba(255,255,255,0.1);
+        }
+        .sales-stage.completed {
+            opacity: 1;
+        }
+        .sales-stage.current {
+            background: rgba(255,255,255,0.2);
+        }
+        .sales-stage.pending {
+            opacity: 0.5;
+        }
+        .stage-icon {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 0.35rem;
+            font-size: 0.85rem;
+            transition: all 0.2s;
+        }
+        .sales-stage.completed .stage-icon {
+            background: #4ade80;
+            color: #166534;
+        }
+        .sales-stage.current .stage-icon {
+            background: white;
+            color: #667eea;
+            box-shadow: 0 0 0 3px rgba(255,255,255,0.4);
+        }
+        .stage-name {
+            font-size: 0.65rem;
+            line-height: 1.2;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .stage-number {
+            font-size: 0.6rem;
+            opacity: 0.7;
+            margin-top: 0.15rem;
+        }
+        /* Stage Update Modal */
+        .stage-modal-content {
+            max-width: 400px;
+        }
+        .stage-confirm-info {
+            background: #f8fafc;
+            padding: 1rem;
+            border-radius: 8px;
+            margin: 1rem 0;
+        }
+        .stage-confirm-info .from-to {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 1rem;
+            margin-top: 0.5rem;
+        }
+        .stage-confirm-info .arrow {
+            color: #667eea;
+            font-size: 1.2rem;
+        }
+        .stage-badge {
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 500;
+        }
+        .stage-badge.old {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+        .stage-badge.new {
+            background: #dcfce7;
+            color: #166534;
+        }
+    </style>
 </head>
 <body>
     <!-- Header -->
@@ -59,6 +202,24 @@
 
     <!-- Main Content -->
     <main class="main-content">
+        <!-- Sales Process Widget -->
+        <section class="sales-process-section">
+            <div class="sales-process-header">
+                <h2><i class="fas fa-route"></i> Sales Process</h2>
+                <div class="current-stage-badge" id="currentStageBadge">
+                    Stage 1 of 11
+                </div>
+            </div>
+            <div class="sales-process-container">
+                <div class="sales-progress-bar">
+                    <div class="sales-progress-fill" id="salesProgressFill" style="width: 0%"></div>
+                </div>
+                <div class="sales-stages" id="salesStages">
+                    <!-- Stages populated by JavaScript -->
+                </div>
+            </div>
+        </section>
+
         <!-- Stats Cards -->
         <section class="stats-section">
             <div class="stat-card">
@@ -218,15 +379,167 @@
         </div>
     </div>
 
+    <!-- Stage Update Confirmation Modal -->
+    <div id="stageUpdateModal" class="modal">
+        <div class="modal-content stage-modal-content">
+            <span class="close" onclick="closeModal('stageUpdateModal')">&times;</span>
+            <h2><i class="fas fa-route"></i> Update Sales Stage</h2>
+            <div class="stage-confirm-info">
+                <p style="text-align: center; margin: 0; color: #666;">Moving to:</p>
+                <div class="from-to">
+                    <span class="stage-badge old" id="oldStageLabel">Stage 1</span>
+                    <i class="fas fa-arrow-right arrow"></i>
+                    <span class="stage-badge new" id="newStageLabel">Stage 2</span>
+                </div>
+            </div>
+            <p id="newStageDescription" style="text-align: center; color: #666; font-size: 0.9rem;"></p>
+            <div class="form-actions" style="margin-top: 1.5rem;">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('stageUpdateModal')">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="confirmStageUpdate()">
+                    <i class="fas fa-check"></i> Confirm Update
+                </button>
+            </div>
+        </div>
+    </div>
+
     <script src="js/aws-config.js"></script>
     <script src="js/auth.js"></script>
     <script src="js/data.js"></script>
+    <script src="js/dynamodb.js"></script>
     <script src="js/app.js"></script>
     <script>
         // Check authentication on page load
         if (!Auth.isLoggedIn()) {
             window.location.href = 'login.html';
         }
+
+        // Sales Process Widget
+        let currentSalesStage = 1;
+        let pendingStageUpdate = null;
+        let currentTenantId = 'jio';
+
+        // Initialize sales process after page loads
+        document.addEventListener('DOMContentLoaded', async function() {
+            const user = Auth.getCurrentUser();
+            if (user) {
+                currentTenantId = user.tenantId || 'jio';
+
+                // Update user display
+                document.getElementById('userName').textContent = user.name;
+                document.getElementById('userRole').textContent = formatUserRole(user.role);
+
+                // Set tenant selector
+                if (user.role === 'ADMIN') {
+                    document.getElementById('tenantSelector').value = currentTenantId;
+                } else {
+                    document.getElementById('tenantSelector').style.display = 'none';
+                }
+            }
+
+            await loadSalesProcess();
+        });
+
+        function formatUserRole(role) {
+            const roleMap = {
+                'ADMIN': 'Admin',
+                'TEAM_LEAD': 'Team Lead',
+                'TEAM_MEMBER': 'Team Member',
+                'CUSTOMER_INCHARGE': 'Customer',
+                'VIEWER': 'Viewer'
+            };
+            return roleMap[role] || role;
+        }
+
+        async function loadSalesProcess() {
+            try {
+                const stageData = await SalesDB.getStage(currentTenantId);
+                currentSalesStage = stageData.currentStage || 1;
+                renderSalesStages();
+            } catch (error) {
+                console.error('Error loading sales process:', error);
+                renderSalesStages(); // Render with default
+            }
+        }
+
+        function renderSalesStages() {
+            const stages = SALES_STAGES;
+            const container = document.getElementById('salesStages');
+            const progressFill = document.getElementById('salesProgressFill');
+            const stageBadge = document.getElementById('currentStageBadge');
+
+            // Update progress bar
+            const progressPercent = ((currentSalesStage - 1) / (stages.length - 1)) * 100;
+            progressFill.style.width = progressPercent + '%';
+
+            // Update badge
+            const currentStageInfo = stages.find(s => s.id === currentSalesStage);
+            stageBadge.textContent = `${currentStageInfo ? currentStageInfo.name : 'Stage ' + currentSalesStage}`;
+
+            // Render stages
+            container.innerHTML = stages.map(stage => {
+                let stageClass = 'sales-stage';
+                if (stage.id < currentSalesStage) stageClass += ' completed';
+                else if (stage.id === currentSalesStage) stageClass += ' current';
+                else stageClass += ' pending';
+
+                const icon = stage.id < currentSalesStage ? 'fa-check' :
+                            (stage.icon || 'fa-circle');
+
+                return `
+                    <div class="${stageClass}" onclick="selectStage(${stage.id})" title="${stage.description}">
+                        <div class="stage-icon">
+                            <i class="fas ${icon}"></i>
+                        </div>
+                        <div class="stage-name">${stage.name}</div>
+                        <div class="stage-number">${stage.id}/11</div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function selectStage(stageId) {
+            const user = Auth.getCurrentUser();
+            if (!user || (user.role !== 'ADMIN' && user.role !== 'TEAM_LEAD')) {
+                return; // Only admin and team lead can change stages
+            }
+
+            if (stageId === currentSalesStage) return;
+
+            const stages = SALES_STAGES;
+            const oldStage = stages.find(s => s.id === currentSalesStage);
+            const newStage = stages.find(s => s.id === stageId);
+
+            pendingStageUpdate = stageId;
+
+            document.getElementById('oldStageLabel').textContent = oldStage.name;
+            document.getElementById('newStageLabel').textContent = newStage.name;
+            document.getElementById('newStageDescription').textContent = newStage.description;
+
+            document.getElementById('stageUpdateModal').classList.add('active');
+        }
+
+        async function confirmStageUpdate() {
+            if (pendingStageUpdate === null) return;
+
+            const user = Auth.getCurrentUser();
+            const result = await SalesDB.updateStage(currentTenantId, pendingStageUpdate, user.email);
+
+            if (result.success) {
+                currentSalesStage = pendingStageUpdate;
+                renderSalesStages();
+                closeModal('stageUpdateModal');
+            } else {
+                alert('Error updating stage: ' + result.error);
+            }
+
+            pendingStageUpdate = null;
+        }
+
+        // Handle tenant selector change
+        document.getElementById('tenantSelector').addEventListener('change', async function(e) {
+            currentTenantId = e.target.value;
+            await loadSalesProcess();
+        });
     </script>
 </body>
 </html>

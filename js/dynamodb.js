@@ -11,9 +11,25 @@ const DYNAMODB_CONFIG = {
         testCases: 'aiusecasedashboard-TestCases-dev',
         documents: 'aiusecasedashboard-Documents-dev',
         approvals: 'aiusecasedashboard-Approvals-dev',
-        activity: 'aiusecasedashboard-Activity-dev'
+        activity: 'aiusecasedashboard-Activity-dev',
+        salesStages: 'aiusecasedashboard-SalesStages-dev'
     }
 };
+
+// Sales stages definition
+const SALES_STAGES = [
+    { id: 1, name: 'Initial Presentation', description: 'First presentation to customer', icon: 'fa-presentation-screen' },
+    { id: 2, name: 'PoC/PoV Interest Confirmed', description: 'Customer shows interest in Proof of Concept/Value', icon: 'fa-handshake' },
+    { id: 3, name: 'PoC/PoV Scope Agreed', description: 'Scope and boundaries defined and agreed', icon: 'fa-file-contract' },
+    { id: 4, name: 'Success Criteria Defined', description: 'PoC/PoV success metrics agreed upon', icon: 'fa-bullseye' },
+    { id: 5, name: 'PoC Use Cases Deployed', description: 'Use cases deployed in PoC environment', icon: 'fa-rocket' },
+    { id: 6, name: 'PoC/PoV Successful', description: 'PoC/PoV completed and validated', icon: 'fa-circle-check' },
+    { id: 7, name: 'Commercial Proposal Presented', description: 'Business proposal submitted to customer', icon: 'fa-file-invoice-dollar' },
+    { id: 8, name: 'Commercial Proposal Accepted', description: 'Customer agrees to commercial terms', icon: 'fa-thumbs-up' },
+    { id: 9, name: 'Production Plan Agreed', description: 'Deployment plan and timeline finalized', icon: 'fa-calendar-check' },
+    { id: 10, name: 'Production Deployed', description: 'Solution deployed in production', icon: 'fa-server' },
+    { id: 11, name: 'UAT Completed', description: 'User Acceptance Testing completed', icon: 'fa-flag-checkered' }
+];
 
 // Initialize AWS SDK with Cognito credentials
 async function initAWS() {
@@ -228,8 +244,72 @@ const InfraDB = {
     }
 };
 
+/**
+ * Sales Stages Operations
+ */
+const SalesDB = {
+    // Get sales stage for a tenant
+    async getStage(tenantId) {
+        return executeWithRetry(async () => {
+            const client = await getDocClient();
+            const params = {
+                TableName: DYNAMODB_CONFIG.tables.salesStages,
+                Key: { tenantId: tenantId }
+            };
+
+            const result = await client.get(params).promise();
+            return result.Item || { tenantId, currentStage: 1, stageHistory: [] };
+        }).catch(error => {
+            console.error('Error fetching sales stage:', error);
+            return { tenantId, currentStage: 1, stageHistory: [] };
+        });
+    },
+
+    // Update current stage for a tenant
+    async updateStage(tenantId, newStage, updatedBy) {
+        return executeWithRetry(async () => {
+            const client = await getDocClient();
+            const now = new Date().toISOString();
+
+            // First get current data to append to history
+            const current = await this.getStage(tenantId);
+            const history = current.stageHistory || [];
+            history.push({
+                stage: newStage,
+                updatedAt: now,
+                updatedBy: updatedBy
+            });
+
+            const params = {
+                TableName: DYNAMODB_CONFIG.tables.salesStages,
+                Key: { tenantId: tenantId },
+                UpdateExpression: 'SET currentStage = :stage, stageHistory = :history, updatedAt = :updatedAt',
+                ExpressionAttributeValues: {
+                    ':stage': newStage,
+                    ':history': history,
+                    ':updatedAt': now
+                },
+                ReturnValues: 'ALL_NEW'
+            };
+
+            const result = await client.update(params).promise();
+            return { success: true, data: result.Attributes };
+        }).catch(error => {
+            console.error('Error updating sales stage:', error);
+            return { success: false, error: error.message };
+        });
+    },
+
+    // Get all stages definition
+    getStagesDefinition() {
+        return SALES_STAGES;
+    }
+};
+
 // Export
 window.InfraDB = InfraDB;
+window.SalesDB = SalesDB;
+window.SALES_STAGES = SALES_STAGES;
 window.getDocClient = getDocClient;
 window.resetDocClient = resetDocClient;
 window.DYNAMODB_CONFIG = DYNAMODB_CONFIG;
