@@ -17,7 +17,11 @@ const AppData = {
         'airtel': { id: 'airtel', name: 'Airtel India - IP Transport' },
         'ioh': { id: 'ioh', name: 'Indosat Ooredoo Hutchison (IOH) Indonesia' },
         'optus': { id: 'optus', name: 'Optus Australia' },
-        'softbank': { id: 'softbank', name: 'SoftBank Japan' }
+        'softbank': { id: 'softbank', name: 'SoftBank Japan' },
+        'kddi': { id: 'kddi', name: 'KDDI Japan' },
+        'ntt': { id: 'ntt', name: 'NTT Japan' },
+        'telstra': { id: 'telstra', name: 'Telstra Australia' },
+        'nbn': { id: 'nbn', name: 'NBN Australia' }
     },
 
     // Deployment Locations (configurable per tenant)
