@@ -21,7 +21,11 @@ const AppData = {
         'kddi': { id: 'kddi', name: 'KDDI Japan' },
         'ntt': { id: 'ntt', name: 'NTT Japan' },
         'telstra': { id: 'telstra', name: 'Telstra Australia' },
-        'nbn': { id: 'nbn', name: 'NBN Australia' }
+        'nbn': { id: 'nbn', name: 'NBN Australia' },
+        'pldt': { id: 'pldt', name: 'PLDT Philippines' },
+        'globe': { id: 'globe', name: 'Globe Telecom Philippines' },
+        'xl': { id: 'xl', name: 'XL Axiata Indonesia' },
+        'smart': { id: 'smart', name: 'Smart Communications Philippines' }
     },
 
     // Deployment Locations (configurable per tenant)
