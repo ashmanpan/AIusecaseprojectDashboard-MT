@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Infra Readiness - AI Dashboard</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        .infra-tabs {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+        }
+        .infra-tab {
+            padding: 0.5rem 1rem;
+            background: #f1f5f9;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 500;
+            color: var(--text-secondary);
+        }
+        .infra-tab.active {
+            background: var(--primary-color);
+            color: white;
+        }
+        .infra-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.85rem;
+        }
+        .infra-table th,
+        .infra-table td {
+            padding: 0.6rem 0.75rem;
+            text-align: left;
+            border-bottom: 1px solid var(--border-color);
+        }
+        .infra-table th {
+            background: #f8fafc;
+            font-weight: 600;
+            color: var(--text-secondary);
+            font-size: 0.75rem;
+            text-transform: uppercase;
+        }
+        .infra-table tbody tr:hover {
+            background: #f8fafc;
+        }
+        .status-select {
+            padding: 0.25rem 0.5rem;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            font-size: 0.8rem;
+            background: white;
+        }
+        .status-NOT_STARTED { background: #f1f5f9; color: #64748b; }
+        .status-IN_PROGRESS { background: #dbeafe; color: #1d4ed8; }
+        .status-COMPLETED { background: #dcfce7; color: #166534; }
+        .status-BLOCKED { background: #fee2e2; color: #991b1b; }
+        .status-ON_HOLD { background: #fef3c7; color: #92400e; }
+        .owner-tag {
+            background: #e0e7ff;
+            color: #3730a3;
+            padding: 0.15rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            white-space: nowrap;
+        }
+        .date-input {
+            padding: 0.25rem 0.5rem;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            font-size: 0.8rem;
+        }
+        .remarks-input {
+            width: 100%;
+            padding: 0.25rem 0.5rem;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            font-size: 0.8rem;
+        }
+        .progress-summary {
+            display: flex;
+            gap: 1.5rem;
+            margin-bottom: 1rem;
+            padding: 1rem;
+            background: var(--card-bg);
+            border-radius: 8px;
+            box-shadow: var(--shadow);
+        }
+        .progress-item {
+            text-align: center;
+        }
+        .progress-item .count {
+            font-size: 1.5rem;
+            font-weight: 700;
+        }
+        .progress-item .label {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+        }
+        .action-btn {
+            padding: 0.25rem 0.5rem;
+            border: none;
+            background: transparent;
+            cursor: pointer;
+            color: var(--text-secondary);
+        }
+        .action-btn:hover {
+            color: var(--primary-color);
+        }
+        .action-btn.delete:hover {
+            color: var(--danger-color);
+        }
+        .add-item-row {
+            background: #f8fafc;
+        }
+        .add-item-row input {
+            width: 100%;
+            padding: 0.5rem;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <div class="header-left">
+            <h1><i class="fas fa-server"></i> Infra Readiness</h1>
+        </div>
+        <div class="header-right">
+            <select id="tenantSelector" class="tenant-select">
+                <option value="jio">Jio India</option>
+                <option value="airtel">Airtel India - IP Transport</option>
+                <option value="ioh">IOH Indonesia</option>
+                <option value="optus">Optus Australia</option>
+                <option value="softbank">SoftBank Japan</option>
+                <option value="kddi">KDDI Japan</option>
+                <option value="ntt">NTT Japan</option>
+                <option value="telstra">Telstra Australia</option>
+                <option value="nbn">NBN Australia</option>
+                <option value="pldt">PLDT Philippines</option>
+                <option value="globe">Globe Telecom Philippines</option>
+                <option value="xl">XL Axiata Indonesia</option>
+                <option value="smart">Smart Communications Philippines</option>
+            </select>
+            <div class="user-menu">
+                <span id="userName">John Doe</span>
+                <span class="role-badge" id="userRole">Team Lead</span>
+                <button class="btn btn-sm btn-secondary" onclick="Auth.signOut()" title="Sign Out">
+                    <i class="fas fa-sign-out-alt"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <nav class="sidebar">
+        <ul>
+            <li><a href="index.html"><i class="fas fa-chart-line"></i> Dashboard</a></li>
+            <li><a href="usecases.html"><i class="fas fa-brain"></i> Use Cases</a></li>
+            <li class="active"><a href="infra.html"><i class="fas fa-server"></i> Infra Readiness</a></li>
+            <li><a href="approvals.html"><i class="fas fa-clipboard-check"></i> Approvals <span class="badge" id="pendingCount">0</span></a></li>
+            <li><a href="settings.html"><i class="fas fa-cog"></i> Settings</a></li>
+        </ul>
+    </nav>
+
+    <main class="main-content">
+        <!-- Progress Summary -->
+        <div class="progress-summary" id="progressSummary">
+            <div class="progress-item">
+                <div class="count" id="totalCount">0</div>
+                <div class="label">Total Items</div>
+            </div>
+            <div class="progress-item">
+                <div class="count" id="completedCount" style="color: var(--success-color);">0</div>
+                <div class="label">Completed</div>
+            </div>
+            <div class="progress-item">
+                <div class="count" id="inProgressCount" style="color: var(--primary-color);">0</div>
+                <div class="label">In Progress</div>
+            </div>
+            <div class="progress-item">
+                <div class="count" id="blockedCount" style="color: var(--danger-color);">0</div>
+                <div class="label">Blocked</div>
+            </div>
+            <div class="progress-item">
+                <div class="count" id="notStartedCount" style="color: var(--text-secondary);">0</div>
+                <div class="label">Not Started</div>
+            </div>
+        </div>
+
+        <!-- Tabs -->
+        <div class="infra-tabs">
+            <button class="infra-tab active" onclick="switchTab('lab')">Lab Readiness</button>
+            <button class="infra-tab" onclick="switchTab('field')">Field Readiness</button>
+        </div>
+
+        <!-- Table Section -->
+        <section class="table-section">
+            <div class="table-header">
+                <h2 id="tableTitle">Lab Readiness Action Items</h2>
+                <div class="table-actions">
+                    <button class="btn btn-primary btn-sm" onclick="addNewItem()">
+                        <i class="fas fa-plus"></i> Add Item
+                    </button>
+                    <button class="btn btn-secondary btn-sm" onclick="saveChanges()">
+                        <i class="fas fa-save"></i> Save Changes
+                    </button>
+                </div>
+            </div>
+            <div style="overflow-x: auto;">
+                <table class="infra-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 40px;">#</th>
+                            <th style="width: 40%;">Action Item</th>
+                            <th style="width: 120px;">Owner</th>
+                            <th style="width: 110px;">Due Date</th>
+                            <th style="width: 120px;">Status</th>
+                            <th>Remarks</th>
+                            <th style="width: 60px;">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="infraTableBody">
+                        <!-- Populated by JavaScript -->
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+
+    <!-- Add/Edit Item Modal -->
+    <div id="itemModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('itemModal')">&times;</span>
+            <h2 id="modalTitle">Add New Item</h2>
+            <form id="itemForm" onsubmit="saveItem(event)">
+                <input type="hidden" id="itemId">
+                <div class="form-group">
+                    <label for="itemDescription">Action Item *</label>
+                    <input type="text" id="itemDescription" required placeholder="Enter action item description">
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="itemOwner">Owner</label>
+                        <input type="text" id="itemOwner" placeholder="e.g., @Sai">
+                    </div>
+                    <div class="form-group">
+                        <label for="itemDueDate">Due Date</label>
+                        <input type="date" id="itemDueDate">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="itemStatus">Status</label>
+                    <select id="itemStatus">
+                        <option value="NOT_STARTED">Not Started</option>
+                        <option value="IN_PROGRESS">In Progress</option>
+                        <option value="COMPLETED">Completed</option>
+                        <option value="BLOCKED">Blocked</option>
+                        <option value="ON_HOLD">On Hold</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="itemRemarks">Remarks</label>
+                    <textarea id="itemRemarks" rows="2" placeholder="Additional notes"></textarea>
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('itemModal')">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Item</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="js/auth.js"></script>
+    <script>
+        if (!Auth.isLoggedIn()) {
+            window.location.href = 'login.html';
+        }
+    </script>
+    <script src="js/data.js"></script>
+    <script>
+        let currentTab = 'lab';
+        let infraData = {
+            lab: [],
+            field: []
+        };
+
+        document.addEventListener('DOMContentLoaded', function() {
+            // Update user info
+            const user = Auth.getCurrentUser();
+            if (user) {
+                document.getElementById('userName').textContent = user.name;
+                document.getElementById('userRole').textContent = formatRole(user.role);
+                if (user.role !== 'ADMIN') {
+                    document.getElementById('tenantSelector').style.display = 'none';
+                }
+            }
+
+            // Load infra data
+            loadInfraData();
+            renderTable();
+            updateProgressSummary();
+        });
+
+        function formatRole(role) {
+            const roleMap = {
+                'ADMIN': 'Admin',
+                'TEAM_LEAD': 'Team Lead',
+                'TEAM_MEMBER': 'Team Member',
+                'CUSTOMER_INCHARGE': 'Customer',
+                'VIEWER': 'Viewer'
+            };
+            return roleMap[role] || role;
+        }
+
+        function loadInfraData() {
+            // Load from localStorage or use defaults
+            const savedData = localStorage.getItem('infraData_' + AppData.currentTenant);
+            if (savedData) {
+                infraData = JSON.parse(savedData);
+            } else {
+                // Initialize with default items
+                infraData = getDefaultInfraData();
+                saveToStorage();
+            }
+        }
+
+        function getDefaultInfraData() {
+            return {
+                lab: [
+                    { id: 1, description: 'Config push from NSO', owner: '@Sai', dueDate: '', status: 'NOT_STARTED', remarks: '' },
+                    { id: 2, description: 'CDG Connectivity & discoverable, data collection', owner: '@Sai', dueDate: '', status: 'NOT_STARTED', remarks: '' },
+                    { id: 3, description: 'Topology visualization must be possible', owner: '@Sai', dueDate: '', status: 'NOT_STARTED', remarks: '' },
+                    { id: 4, description: 'CWM must be connected to all devices', owner: '@Sai', dueDate: '', status: 'NOT_STARTED', remarks: '' },
+                    { id: 5, description: 'OS Image must be possible to upload on all devices (NCS 540)', owner: '@Sai', dueDate: '', status: 'NOT_STARTED', remarks: '' },
+                    { id: 6, description: 'SR-PCE connection with help of BGP-LS', owner: '@Sai', dueDate: '', status: 'NOT_STARTED', remarks: '' },
+                    { id: 7, description: 'CDG data (Inventory, PM, CLI) collected must be able to be shared on external Kafka', owner: '@Sai', dueDate: '', status: 'NOT_STARTED', remarks: '' },
+                    { id: 8, description: 'FM data must be able to be shared on external Kafka', owner: '@Sai', dueDate: '', status: 'NOT_STARTED', remarks: '' },
+                    { id: 9, description: 'CNC - PCA Integration', owner: '@Sai', dueDate: '', status: 'NOT_STARTED', remarks: '' },
+                    { id: 10, description: 'CNC - HCO Integration', owner: '@Sai', dueDate: '', status: 'NOT_STARTED', remarks: '' },
+                    { id: 11, description: 'Brown-field service discovery using NSO', owner: '@Sai', dueDate: '', status: 'NOT_STARTED', remarks: '' },
+                    { id: 12, description: 'Service visualization using CNC', owner: '@Sai', dueDate: '', status: 'NOT_STARTED', remarks: '' },
+                    { id: 13, description: 'Service health in CNC', owner: '@Sai', dueDate: '', status: 'NOT_STARTED', remarks: '' },
+                    { id: 14, description: 'SR-PCE must be able to deploy tunnels in the network using API', owner: '@Sai', dueDate: '', status: 'NOT_STARTED', remarks: '' },
+                    { id: 15, description: 'Sensor deployment & visualization in PCA', owner: '@Sai', dueDate: '', status: 'NOT_STARTED', remarks: '' },
+                    { id: 16, description: 'Fault correlation in PCA', owner: '@Sai', dueDate: '', status: 'NOT_STARTED', remarks: '' },
+                    { id: 17, description: 'Existing fault-tickets data, RFO & MOP for resolution (processes, etc.)', owner: '@Rushit', dueDate: '', status: 'NOT_STARTED', remarks: '' },
+                    { id: 18, description: 'Confirmation for above points from Sai R', owner: '@Sai', dueDate: '', status: 'NOT_STARTED', remarks: '' },
+                    { id: 19, description: 'Validation check for above points from Supriya S', owner: '@Supriya, @Hemant', dueDate: '', status: 'NOT_STARTED', remarks: '' },
+                    { id: 20, description: 'Agreement on test-cases based on received fault-tickets', owner: '@Rushit, @Hemant', dueDate: '2024-12-23', status: 'NOT_STARTED', remarks: '' },
+                    { id: 21, description: 'Deployment of Fault-Injection service', owner: '@Rushit, @Krishna, @Vikarna', dueDate: '2024-12-23', status: 'NOT_STARTED', remarks: '' }
+                ],
+                field: [
+                    { id: 1, description: 'Identify the network devices for field-trial IP + Optical', owner: '@Hemant', dueDate: '', status: 'NOT_STARTED', remarks: '' },
+                    { id: 2, description: 'Identify the hardware requirement for ear-marked field-trial', owner: '@Hemant', dueDate: '', status: 'NOT_STARTED', remarks: '' },
+                    { id: 3, description: 'Deployment of production apps (CNC, HCO, PCA, Agentic platform, etc.)', owner: '@Sai, @Hemant, @Supriya', dueDate: '', status: 'NOT_STARTED', remarks: '' },
+                    { id: 4, description: 'Deployment of config on network devices for apps reachability', owner: '@Sai', dueDate: '', status: 'NOT_STARTED', remarks: '' },
+                    { id: 5, description: 'CDG Connectivity & discoverable, data collection', owner: '@Sai', dueDate: '', status: 'NOT_STARTED', remarks: '' },
+                    { id: 6, description: 'Topology visualization must be possible', owner: '@Sai', dueDate: '', status: 'NOT_STARTED', remarks: '' },
+                    { id: 7, description: 'CWM must be connected to all devices', owner: '@Sai', dueDate: '', status: 'NOT_STARTED', remarks: '' },
+                    { id: 8, description: 'OS Image must be possible to upload on all devices (NCS 540)', owner: '@Sai', dueDate: '', status: 'NOT_STARTED', remarks: '' },
+                    { id: 9, description: 'SR-PCE connection with help of BGP-LS', owner: '@Sai', dueDate: '', status: 'NOT_STARTED', remarks: '' },
+                    { id: 10, description: 'CDG data (Inventory, PM, CLI) collected must be able to be shared on external Kafka', owner: '@Sai', dueDate: '', status: 'NOT_STARTED', remarks: '' },
+                    { id: 11, description: 'FM data must be able to be shared on external Kafka', owner: '@Sai', dueDate: '', status: 'NOT_STARTED', remarks: '' },
+                    { id: 12, description: 'CNC - PCA Integration', owner: '@Sai', dueDate: '', status: 'NOT_STARTED', remarks: '' },
+                    { id: 13, description: 'CNC - HCO Integration', owner: '@Sai', dueDate: '', status: 'NOT_STARTED', remarks: '' },
+                    { id: 14, description: 'Brown-field service discovery using NSO', owner: '@Sai', dueDate: '', status: 'NOT_STARTED', remarks: '' },
+                    { id: 15, description: 'Config push from NSO', owner: '@Sai', dueDate: '', status: 'NOT_STARTED', remarks: '' },
+                    { id: 16, description: 'Service visualization using CNC', owner: '@Sai', dueDate: '', status: 'NOT_STARTED', remarks: '' },
+                    { id: 17, description: 'Service health in CNC', owner: '@Sai', dueDate: '', status: 'NOT_STARTED', remarks: '' },
+                    { id: 18, description: 'SR-PCE must be able to deploy tunnels in the network using API', owner: '@Sai', dueDate: '', status: 'NOT_STARTED', remarks: '' },
+                    { id: 19, description: 'Sensor deployment & visualization in PCA', owner: '@Sai', dueDate: '', status: 'NOT_STARTED', remarks: '' },
+                    { id: 20, description: 'Fault correlation in PCA', owner: '@Sai', dueDate: '', status: 'NOT_STARTED', remarks: '' },
+                    { id: 21, description: 'Confirmation for above points from Sai R', owner: '@Sai', dueDate: '', status: 'NOT_STARTED', remarks: '' },
+                    { id: 22, description: 'Validation check for above points from Supriya S', owner: '@Supriya, @Hemant', dueDate: '', status: 'NOT_STARTED', remarks: '' },
+                    { id: 23, description: 'Existing fault-tickets data, RFO & MOP for resolution (processes, etc.)', owner: '@Rushit', dueDate: '2024-12-23', status: 'NOT_STARTED', remarks: '' },
+                    { id: 24, description: 'Agreement on test-cases based on received fault-tickets', owner: '@Rushit, @Hemant', dueDate: '2024-12-23', status: 'NOT_STARTED', remarks: '' },
+                    { id: 25, description: 'Deployment of Fault-Injection service', owner: '', dueDate: '', status: 'NOT_STARTED', remarks: '' }
+                ]
+            };
+        }
+
+        function saveToStorage() {
+            localStorage.setItem('infraData_' + AppData.currentTenant, JSON.stringify(infraData));
+        }
+
+        function switchTab(tab) {
+            currentTab = tab;
+            document.querySelectorAll('.infra-tab').forEach(t => t.classList.remove('active'));
+            event.target.classList.add('active');
+            document.getElementById('tableTitle').textContent =
+                tab === 'lab' ? 'Lab Readiness Action Items' : 'Field Readiness Action Items';
+            renderTable();
+            updateProgressSummary();
+        }
+
+        function renderTable() {
+            const tbody = document.getElementById('infraTableBody');
+            const items = infraData[currentTab];
+
+            tbody.innerHTML = items.map((item, index) => `
+                <tr>
+                    <td>${index + 1}</td>
+                    <td>${item.description}</td>
+                    <td><span class="owner-tag">${item.owner || '-'}</span></td>
+                    <td>
+                        <input type="date" class="date-input" value="${item.dueDate}"
+                               onchange="updateItem(${item.id}, 'dueDate', this.value)">
+                    </td>
+                    <td>
+                        <select class="status-select status-${item.status}"
+                                onchange="updateItem(${item.id}, 'status', this.value); this.className='status-select status-'+this.value;">
+                            <option value="NOT_STARTED" ${item.status === 'NOT_STARTED' ? 'selected' : ''}>Not Started</option>
+                            <option value="IN_PROGRESS" ${item.status === 'IN_PROGRESS' ? 'selected' : ''}>In Progress</option>
+                            <option value="COMPLETED" ${item.status === 'COMPLETED' ? 'selected' : ''}>Completed</option>
+                            <option value="BLOCKED" ${item.status === 'BLOCKED' ? 'selected' : ''}>Blocked</option>
+                            <option value="ON_HOLD" ${item.status === 'ON_HOLD' ? 'selected' : ''}>On Hold</option>
+                        </select>
+                    </td>
+                    <td>
+                        <input type="text" class="remarks-input" value="${item.remarks || ''}"
+                               placeholder="Add remarks..."
+                               onchange="updateItem(${item.id}, 'remarks', this.value)">
+                    </td>
+                    <td>
+                        <button class="action-btn" onclick="editItem(${item.id})" title="Edit">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button class="action-btn delete" onclick="deleteItem(${item.id})" title="Delete">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function updateItem(id, field, value) {
+            const item = infraData[currentTab].find(i => i.id === id);
+            if (item) {
+                item[field] = value;
+                saveToStorage();
+                if (field === 'status') {
+                    updateProgressSummary();
+                }
+            }
+        }
+
+        function updateProgressSummary() {
+            const items = infraData[currentTab];
+            const total = items.length;
+            const completed = items.filter(i => i.status === 'COMPLETED').length;
+            const inProgress = items.filter(i => i.status === 'IN_PROGRESS').length;
+            const blocked = items.filter(i => i.status === 'BLOCKED').length;
+            const notStarted = items.filter(i => i.status === 'NOT_STARTED').length;
+
+            document.getElementById('totalCount').textContent = total;
+            document.getElementById('completedCount').textContent = completed;
+            document.getElementById('inProgressCount').textContent = inProgress;
+            document.getElementById('blockedCount').textContent = blocked;
+            document.getElementById('notStartedCount').textContent = notStarted;
+        }
+
+        function addNewItem() {
+            document.getElementById('modalTitle').textContent = 'Add New Item';
+            document.getElementById('itemForm').reset();
+            document.getElementById('itemId').value = '';
+            document.getElementById('itemModal').classList.add('active');
+        }
+
+        function editItem(id) {
+            const item = infraData[currentTab].find(i => i.id === id);
+            if (item) {
+                document.getElementById('modalTitle').textContent = 'Edit Item';
+                document.getElementById('itemId').value = id;
+                document.getElementById('itemDescription').value = item.description;
+                document.getElementById('itemOwner').value = item.owner;
+                document.getElementById('itemDueDate').value = item.dueDate;
+                document.getElementById('itemStatus').value = item.status;
+                document.getElementById('itemRemarks').value = item.remarks;
+                document.getElementById('itemModal').classList.add('active');
+            }
+        }
+
+        function saveItem(event) {
+            event.preventDefault();
+            const id = document.getElementById('itemId').value;
+            const itemData = {
+                description: document.getElementById('itemDescription').value,
+                owner: document.getElementById('itemOwner').value,
+                dueDate: document.getElementById('itemDueDate').value,
+                status: document.getElementById('itemStatus').value,
+                remarks: document.getElementById('itemRemarks').value
+            };
+
+            if (id) {
+                // Edit existing
+                const item = infraData[currentTab].find(i => i.id === parseInt(id));
+                if (item) {
+                    Object.assign(item, itemData);
+                }
+            } else {
+                // Add new
+                const maxId = Math.max(...infraData[currentTab].map(i => i.id), 0);
+                infraData[currentTab].push({
+                    id: maxId + 1,
+                    ...itemData
+                });
+            }
+
+            saveToStorage();
+            renderTable();
+            updateProgressSummary();
+            closeModal('itemModal');
+        }
+
+        function deleteItem(id) {
+            if (confirm('Are you sure you want to delete this item?')) {
+                infraData[currentTab] = infraData[currentTab].filter(i => i.id !== id);
+                saveToStorage();
+                renderTable();
+                updateProgressSummary();
+            }
+        }
+
+        function saveChanges() {
+            saveToStorage();
+            showNotification('Changes saved successfully!', 'success');
+        }
+
+        function closeModal(modalId) {
+            document.getElementById(modalId).classList.remove('active');
+        }
+
+        function showNotification(message, type) {
+            const notification = document.createElement('div');
+            notification.className = `notification ${type}`;
+            notification.innerHTML = `
+                <i class="fas ${type === 'success' ? 'fa-check-circle' : 'fa-info-circle'}"></i>
+                <span>${message}</span>
+            `;
+            document.body.appendChild(notification);
+            setTimeout(() => notification.classList.add('show'), 100);
+            setTimeout(() => {
+                notification.classList.remove('show');
+                setTimeout(() => notification.remove(), 300);
+            }, 3000);
+        }
+
+        // Close modal when clicking outside
+        window.onclick = function(event) {
+            if (event.target.classList.contains('modal')) {
+                event.target.classList.remove('active');
+            }
+        };
+    </script>
+</body>
+</html>
