@@ -11,6 +11,16 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 function initDashboard() {
+    // Update user name and role in header
+    const userNameEl = document.getElementById('userName');
+    if (userNameEl) {
+        userNameEl.textContent = AppData.currentUser.name;
+    }
+    const roleBadgeEl = document.querySelector('.role-badge');
+    if (roleBadgeEl) {
+        roleBadgeEl.textContent = formatRole(AppData.currentUser.role);
+    }
+
     // Hide tenant selector for non-admin users
     const tenantSelector = document.getElementById('tenantSelector');
     if (tenantSelector) {
@@ -152,6 +162,18 @@ function formatStatus(status) {
         'ARCHIVED': 'Archived'
     };
     return statusMap[status] || status;
+}
+
+// Format role
+function formatRole(role) {
+    const roleMap = {
+        'ADMIN': 'Admin',
+        'TEAM_LEAD': 'Team Lead',
+        'TEAM_MEMBER': 'Team Member',
+        'CUSTOMER_INCHARGE': 'Customer',
+        'VIEWER': 'Viewer'
+    };
+    return roleMap[role] || role;
 }
 
 // Format date
