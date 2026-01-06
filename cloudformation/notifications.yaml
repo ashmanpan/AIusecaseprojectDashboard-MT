@@ -1,0 +1,349 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: AI Use Case Dashboard - Email Notifications (SES + Lambda)
+
+Parameters:
+  Environment:
+    Type: String
+    Default: dev
+  ProjectName:
+    Type: String
+    Default: aiusecasedashboard
+  SenderEmail:
+    Type: String
+    Description: Email address to send notifications from (must be verified in SES)
+    Default: noreply@example.com
+  AdminEmail:
+    Type: String
+    Description: Admin email to receive weekly digest
+    Default: admin@example.com
+
+Resources:
+  # ==================== SNS TOPIC ====================
+
+  NotificationTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Sub ${ProjectName}-notifications-${Environment}
+      DisplayName: AI Use Case Dashboard Notifications
+
+  # ==================== LAMBDA EXECUTION ROLE ====================
+
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ${ProjectName}-lambda-role-${Environment}
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: SESAndDynamoDBAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - ses:SendEmail
+                  - ses:SendRawEmail
+                Resource: '*'
+              - Effect: Allow
+                Action:
+                  - dynamodb:GetItem
+                  - dynamodb:Query
+                  - dynamodb:Scan
+                Resource:
+                  - !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${ProjectName}-*
+                  - !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${ProjectName}-*/index/*
+              - Effect: Allow
+                Action:
+                  - sns:Publish
+                Resource: !Ref NotificationTopic
+
+  # ==================== APPROVAL NOTIFICATION LAMBDA ====================
+
+  ApprovalNotificationFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub ${ProjectName}-approval-notification-${Environment}
+      Runtime: python3.11
+      Handler: index.handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Timeout: 30
+      Environment:
+        Variables:
+          SENDER_EMAIL: !Ref SenderEmail
+          DASHBOARD_URL: !Sub https://main.d1fzx7resjc6a5.amplifyapp.com
+          USECASES_TABLE: !Sub ${ProjectName}-UseCases-${Environment}
+          USERS_TABLE: !Sub ${ProjectName}-Users-${Environment}
+      Code:
+        ZipFile: |
+          import boto3
+          import os
+          import json
+
+          ses = boto3.client('ses')
+          dynamodb = boto3.resource('dynamodb')
+
+          def handler(event, context):
+              """
+              Send email notification when use case status changes.
+              Event should contain: useCaseId, action, recipientEmail, useCaseName
+              """
+              try:
+                  use_case_id = event.get('useCaseId')
+                  action = event.get('action')  # SUBMITTED, APPROVED, REJECTED, CHANGES_REQUESTED
+                  recipient = event.get('recipientEmail')
+                  use_case_name = event.get('useCaseName', 'Unknown Use Case')
+                  comments = event.get('comments', '')
+
+                  sender = os.environ['SENDER_EMAIL']
+                  dashboard_url = os.environ['DASHBOARD_URL']
+
+                  subject_map = {
+                      'SUBMITTED': f'Action Required: "{use_case_name}" submitted for approval',
+                      'APPROVED': f'Approved: "{use_case_name}" has been approved',
+                      'REJECTED': f'Rejected: "{use_case_name}" has been rejected',
+                      'CHANGES_REQUESTED': f'Changes Requested: "{use_case_name}" needs updates'
+                  }
+
+                  subject = subject_map.get(action, f'Update: "{use_case_name}"')
+
+                  body_html = f"""
+                  <html>
+                  <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                      <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; text-align: center;">
+                          <h1 style="color: white; margin: 0;">AI Use Case Dashboard</h1>
+                      </div>
+                      <div style="padding: 20px; background: #f8fafc;">
+                          <h2 style="color: #1e293b;">{subject}</h2>
+                          <p style="color: #475569;">
+                              The use case <strong>{use_case_name}</strong> has been <strong>{action.lower().replace('_', ' ')}</strong>.
+                          </p>
+                          {'<div style="background: #fef3c7; border-left: 4px solid #f59e0b; padding: 10px; margin: 15px 0;"><strong>Comments:</strong><br>' + comments + '</div>' if comments else ''}
+                          <a href="{dashboard_url}/usecase.html?id={use_case_id}"
+                             style="display: inline-block; background: #667eea; color: white; padding: 12px 24px;
+                                    text-decoration: none; border-radius: 6px; margin-top: 15px;">
+                              View Use Case
+                          </a>
+                      </div>
+                      <div style="padding: 15px; text-align: center; color: #94a3b8; font-size: 12px;">
+                          This is an automated message from AI Use Case Dashboard.
+                      </div>
+                  </body>
+                  </html>
+                  """
+
+                  response = ses.send_email(
+                      Source=sender,
+                      Destination={'ToAddresses': [recipient]},
+                      Message={
+                          'Subject': {'Data': subject},
+                          'Body': {
+                              'Html': {'Data': body_html}
+                          }
+                      }
+                  )
+
+                  return {
+                      'statusCode': 200,
+                      'body': json.dumps({'messageId': response['MessageId']})
+                  }
+
+              except Exception as e:
+                  print(f"Error sending email: {str(e)}")
+                  return {
+                      'statusCode': 500,
+                      'body': json.dumps({'error': str(e)})
+                  }
+
+  # ==================== WEEKLY DIGEST LAMBDA ====================
+
+  WeeklyDigestFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub ${ProjectName}-weekly-digest-${Environment}
+      Runtime: python3.11
+      Handler: index.handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Timeout: 60
+      Environment:
+        Variables:
+          SENDER_EMAIL: !Ref SenderEmail
+          ADMIN_EMAIL: !Ref AdminEmail
+          DASHBOARD_URL: !Sub https://main.d1fzx7resjc6a5.amplifyapp.com
+          USECASES_TABLE: !Sub ${ProjectName}-UseCases-${Environment}
+          USERS_TABLE: !Sub ${ProjectName}-Users-${Environment}
+          ACTIVITY_TABLE: !Sub ${ProjectName}-Activity-${Environment}
+      Code:
+        ZipFile: |
+          import boto3
+          import os
+          import json
+          from datetime import datetime, timedelta
+
+          ses = boto3.client('ses')
+          dynamodb = boto3.resource('dynamodb')
+
+          def handler(event, context):
+              """
+              Send weekly digest email with summary of all use cases.
+              """
+              try:
+                  sender = os.environ['SENDER_EMAIL']
+                  admin_email = os.environ['ADMIN_EMAIL']
+                  dashboard_url = os.environ['DASHBOARD_URL']
+
+                  # Get use cases from DynamoDB
+                  usecases_table = dynamodb.Table(os.environ['USECASES_TABLE'])
+                  response = usecases_table.scan()
+                  use_cases = response.get('Items', [])
+
+                  # Calculate stats
+                  total = len(use_cases)
+                  approved = len([uc for uc in use_cases if uc.get('status') == 'APPROVED'])
+                  pending = len([uc for uc in use_cases if 'PENDING' in uc.get('status', '')])
+                  draft = len([uc for uc in use_cases if uc.get('status') == 'DRAFT'])
+                  changes_requested = len([uc for uc in use_cases if uc.get('status') == 'CHANGES_REQUESTED'])
+
+                  # Build use cases table rows
+                  uc_rows = ''
+                  for uc in use_cases[:10]:  # Limit to 10 in email
+                      status_color = {
+                          'APPROVED': '#22c55e',
+                          'PENDING_LEAD_APPROVAL': '#f59e0b',
+                          'PENDING_CUSTOMER_APPROVAL': '#f59e0b',
+                          'DRAFT': '#94a3b8',
+                          'CHANGES_REQUESTED': '#ef4444'
+                      }.get(uc.get('status', ''), '#94a3b8')
+
+                      uc_rows += f"""
+                      <tr>
+                          <td style="padding: 10px; border-bottom: 1px solid #e2e8f0;">{uc.get('name', 'N/A')}</td>
+                          <td style="padding: 10px; border-bottom: 1px solid #e2e8f0;">
+                              <span style="background: {status_color}; color: white; padding: 3px 8px; border-radius: 4px; font-size: 11px;">
+                                  {uc.get('status', 'N/A').replace('_', ' ')}
+                              </span>
+                          </td>
+                      </tr>
+                      """
+
+                  body_html = f"""
+                  <html>
+                  <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                      <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; text-align: center;">
+                          <h1 style="color: white; margin: 0;">Weekly Digest</h1>
+                          <p style="color: rgba(255,255,255,0.8); margin: 5px 0 0 0;">AI Use Case Dashboard</p>
+                      </div>
+
+                      <div style="padding: 20px; background: #f8fafc;">
+                          <h2 style="color: #1e293b; margin-top: 0;">Summary</h2>
+
+                          <div style="display: flex; gap: 10px; margin-bottom: 20px;">
+                              <div style="flex: 1; background: white; padding: 15px; border-radius: 8px; text-align: center; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                                  <div style="font-size: 24px; font-weight: bold; color: #667eea;">{total}</div>
+                                  <div style="color: #64748b; font-size: 12px;">Total</div>
+                              </div>
+                              <div style="flex: 1; background: white; padding: 15px; border-radius: 8px; text-align: center; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                                  <div style="font-size: 24px; font-weight: bold; color: #22c55e;">{approved}</div>
+                                  <div style="color: #64748b; font-size: 12px;">Approved</div>
+                              </div>
+                              <div style="flex: 1; background: white; padding: 15px; border-radius: 8px; text-align: center; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                                  <div style="font-size: 24px; font-weight: bold; color: #f59e0b;">{pending}</div>
+                                  <div style="color: #64748b; font-size: 12px;">Pending</div>
+                              </div>
+                          </div>
+
+                          <h3 style="color: #1e293b;">Use Cases</h3>
+                          <table style="width: 100%; border-collapse: collapse; background: white; border-radius: 8px; overflow: hidden;">
+                              <thead>
+                                  <tr style="background: #f1f5f9;">
+                                      <th style="padding: 10px; text-align: left; color: #475569;">Name</th>
+                                      <th style="padding: 10px; text-align: left; color: #475569;">Status</th>
+                                  </tr>
+                              </thead>
+                              <tbody>
+                                  {uc_rows}
+                              </tbody>
+                          </table>
+
+                          <a href="{dashboard_url}"
+                             style="display: inline-block; background: #667eea; color: white; padding: 12px 24px;
+                                    text-decoration: none; border-radius: 6px; margin-top: 20px;">
+                              View Full Dashboard
+                          </a>
+                      </div>
+
+                      <div style="padding: 15px; text-align: center; color: #94a3b8; font-size: 12px;">
+                          Weekly digest from AI Use Case Dashboard<br>
+                          Generated on {datetime.now().strftime('%B %d, %Y')}
+                      </div>
+                  </body>
+                  </html>
+                  """
+
+                  response = ses.send_email(
+                      Source=sender,
+                      Destination={'ToAddresses': [admin_email]},
+                      Message={
+                          'Subject': {'Data': f'Weekly Digest - AI Use Case Dashboard ({datetime.now().strftime("%b %d")})'},
+                          'Body': {
+                              'Html': {'Data': body_html}
+                          }
+                      }
+                  )
+
+                  return {
+                      'statusCode': 200,
+                      'body': json.dumps({
+                          'messageId': response['MessageId'],
+                          'stats': {'total': total, 'approved': approved, 'pending': pending}
+                      })
+                  }
+
+              except Exception as e:
+                  print(f"Error sending weekly digest: {str(e)}")
+                  return {
+                      'statusCode': 500,
+                      'body': json.dumps({'error': str(e)})
+                  }
+
+  # ==================== EVENTBRIDGE RULE (WEEKLY SCHEDULE) ====================
+
+  WeeklyDigestSchedule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: !Sub ${ProjectName}-weekly-digest-schedule-${Environment}
+      Description: Trigger weekly digest email every Monday at 9 AM UTC
+      ScheduleExpression: cron(0 9 ? * MON *)
+      State: ENABLED
+      Targets:
+        - Id: WeeklyDigestTarget
+          Arn: !GetAtt WeeklyDigestFunction.Arn
+
+  WeeklyDigestPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref WeeklyDigestFunction
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt WeeklyDigestSchedule.Arn
+
+Outputs:
+  NotificationTopicArn:
+    Description: SNS Topic for notifications
+    Value: !Ref NotificationTopic
+    Export:
+      Name: !Sub ${ProjectName}-NotificationTopic-${Environment}
+
+  ApprovalNotificationFunctionArn:
+    Description: Lambda function for approval notifications
+    Value: !GetAtt ApprovalNotificationFunction.Arn
+
+  WeeklyDigestFunctionArn:
+    Description: Lambda function for weekly digest
+    Value: !GetAtt WeeklyDigestFunction.Arn
