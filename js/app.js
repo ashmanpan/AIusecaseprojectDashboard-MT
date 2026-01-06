@@ -5,6 +5,16 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 function initDashboard() {
+    // Hide tenant selector for non-admin users
+    const tenantSelector = document.getElementById('tenantSelector');
+    if (tenantSelector) {
+        if (AppData.currentUser.role !== 'ADMIN') {
+            tenantSelector.style.display = 'none';
+        } else {
+            tenantSelector.style.display = 'block';
+        }
+    }
+
     // Only run functions if elements exist
     if (document.getElementById('totalUseCases')) {
         updateStats();
