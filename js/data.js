@@ -185,6 +185,26 @@ const AppData = {
             updatedAt: '2026-01-01'
         },
         {
+            id: 'UC004',
+            name: 'Image Upgrade',
+            description: 'Automated network device image upgrade with AI-based risk assessment.',
+            tenantId: 'jio',
+            status: 'IN_PROGRESS',
+            deploymentLocation: 'LAB',
+            lifecycleStage: 'INTERNAL_UNIT_TESTING',
+            deployedInLab: true,
+            deployedInLabDate: null,
+            internalTestsReady: true,
+            jointTestsReady: false,
+            unitTestProgress: { completed: 0, total: 10 },
+            e2eTestingStatus: '1 week after Unit Testing completion',
+            jointTestingStart: 'After E2E Testing completion',
+            currentVersion: '1.2',
+            createdBy: 'user1',
+            createdAt: '2025-11-20',
+            updatedAt: '2026-01-04'
+        },
+        {
             id: 'UC005',
             name: 'Toxic Factor Detection',
             description: 'AI model to detect and analyze toxic network behaviors and anomalies.',
