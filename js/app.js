@@ -21,13 +21,14 @@ function initDashboard() {
         roleBadgeEl.textContent = formatRole(AppData.currentUser.role);
     }
 
-    // Hide tenant selector for non-admin users
+    // Show tenant selector for admin and multi-tenant users
     const tenantSelector = document.getElementById('tenantSelector');
     if (tenantSelector) {
-        if (AppData.currentUser.role !== 'ADMIN') {
-            tenantSelector.style.display = 'none';
-        } else {
+        const user = AppData.currentUser;
+        if (user.role === 'ADMIN' || user.tenantId === null || (user.editableTenants && user.editableTenants.length > 1)) {
             tenantSelector.style.display = 'block';
+        } else {
+            tenantSelector.style.display = 'none';
         }
     }
 

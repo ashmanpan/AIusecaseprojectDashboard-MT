@@ -95,6 +95,14 @@ async function signIn(email, password) {
                 user.tenantId = null; // Admin can see all tenants
             }
 
+            // Merge editableTenants from data.js user record
+            if (typeof AppData !== 'undefined' && AppData.users) {
+                const dataUser = AppData.users.find(u => u.email === user.email);
+                if (dataUser && dataUser.editableTenants) {
+                    user.editableTenants = dataUser.editableTenants;
+                }
+            }
+
             sessionStorage.setItem(SESSION_KEYS.user, JSON.stringify(user));
             sessionStorage.setItem(SESSION_KEYS.isLoggedIn, 'true');
 
@@ -154,6 +162,14 @@ async function setNewPassword(email, newPassword, session) {
             if (user.groups.includes('Admin')) {
                 user.role = 'ADMIN';
                 user.tenantId = null;
+            }
+
+            // Merge editableTenants from data.js user record
+            if (typeof AppData !== 'undefined' && AppData.users) {
+                const dataUser = AppData.users.find(u => u.email === user.email);
+                if (dataUser && dataUser.editableTenants) {
+                    user.editableTenants = dataUser.editableTenants;
+                }
             }
 
             sessionStorage.setItem(SESSION_KEYS.user, JSON.stringify(user));

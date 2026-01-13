@@ -195,6 +195,7 @@
             <li class="active"><a href="index.html"><i class="fas fa-chart-line"></i> Dashboard</a></li>
             <li><a href="usecases.html"><i class="fas fa-brain"></i> Use Cases</a></li>
             <li><a href="infra.html"><i class="fas fa-server"></i> Infra Readiness</a></li>
+            <li><a href="production.html"><i class="fas fa-rocket"></i> Production</a></li>
             <li><a href="approvals.html"><i class="fas fa-clipboard-check"></i> Approvals <span class="badge" id="pendingCount">3</span></a></li>
             <li><a href="settings.html"><i class="fas fa-cog"></i> Settings</a></li>
         </ul>
@@ -428,8 +429,8 @@
                 document.getElementById('userName').textContent = user.name;
                 document.getElementById('userRole').textContent = formatUserRole(user.role);
 
-                // Set tenant selector
-                if (user.role === 'ADMIN') {
+                // Set tenant selector - show for admin and multi-tenant users
+                if (user.role === 'ADMIN' || user.tenantId === null || (user.editableTenants && user.editableTenants.length > 1)) {
                     document.getElementById('tenantSelector').value = currentTenantId;
                 } else {
                     document.getElementById('tenantSelector').style.display = 'none';
@@ -499,8 +500,9 @@
 
         function selectStage(stageId) {
             const user = Auth.getCurrentUser();
-            if (!user || (user.role !== 'ADMIN' && user.role !== 'TEAM_LEAD')) {
-                return; // Only admin and team lead can change stages
+            // Check if user can edit this tenant
+            if (!user || !canEditTenant(user, currentTenantId)) {
+                return; // Only users with edit access can change stages
             }
 
             if (stageId === currentSalesStage) return;

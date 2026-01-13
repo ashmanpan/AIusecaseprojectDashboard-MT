@@ -63,6 +63,42 @@ const AppData = {
             email: 'rushisha@cisco.com',
             role: 'TEAM_LEAD',
             tenantId: 'airtel'
+        },
+        {
+            id: 'jaidgupt',
+            name: 'Jaideep Gupta',
+            email: 'jaidgupt@cisco.com',
+            role: 'VIEWER',
+            tenantId: null  // Viewer has access to all tenants
+        },
+        {
+            id: 'vikasha3',
+            name: 'Vikas Sharma',
+            email: 'vikasha3@cisco.com',
+            role: 'VIEWER',
+            tenantId: 'airtel'
+        },
+        {
+            id: 'abroycho',
+            name: 'Abhinav Roychoudhury',
+            email: 'abroycho@cisco.com',
+            role: 'VIEWER',
+            tenantId: null  // Viewer has access to all tenants
+        },
+        {
+            id: 'hemakum4',
+            name: 'Hemant Kumar',
+            email: 'hemakum4@cisco.com',
+            role: 'TEAM_LEAD',
+            tenantId: null,  // Can view all tenants
+            editableTenants: ['jio', 'airtel']  // Can edit these tenants
+        },
+        {
+            id: 'mdzkhan',
+            name: 'Md Zoheb Khan',
+            email: 'mdzkhan@cisco.com',
+            role: 'TEAM_LEAD',
+            tenantId: 'airtel'
         }
     ],
 
@@ -93,7 +129,7 @@ const AppData = {
             name: 'Incident Management',
             description: 'AI-powered incident management system for automated ticket classification, routing, and resolution suggestions.',
             tenantId: 'jio',
-            status: 'PENDING_LEAD_APPROVAL',
+            status: 'IN_PROGRESS',
             deploymentLocation: 'LAB',
             lifecycleStage: 'INTERNAL_UNIT_TESTING',
             deployedInLab: true,
@@ -113,7 +149,7 @@ const AppData = {
             name: 'RCA (Root Cause Analysis)',
             description: 'AI-driven root cause analysis for network incidents using ML pattern recognition.',
             tenantId: 'jio',
-            status: 'DRAFT',
+            status: 'DEPLOYMENT_IN_PROGRESS',
             deploymentLocation: 'LAB',
             lifecycleStage: 'INTERNAL_UNIT_TESTING',
             deployedInLab: false,
@@ -133,7 +169,7 @@ const AppData = {
             name: 'Customer Experience Management',
             description: 'AI analytics for customer experience insights and predictive satisfaction scoring.',
             tenantId: 'jio',
-            status: 'DRAFT',
+            status: 'DEPLOYMENT_IN_PROGRESS',
             deploymentLocation: 'POC_CLOUD',
             lifecycleStage: 'INTERNAL_UNIT_TESTING',
             deployedInLab: false,
@@ -149,31 +185,11 @@ const AppData = {
             updatedAt: '2026-01-01'
         },
         {
-            id: 'UC004',
-            name: 'Image Upgrade',
-            description: 'Automated network device image upgrade with AI-based risk assessment.',
-            tenantId: 'jio',
-            status: 'PENDING_CUSTOMER_APPROVAL',
-            deploymentLocation: 'LAB',
-            lifecycleStage: 'INTERNAL_UNIT_TESTING',
-            deployedInLab: true,
-            deployedInLabDate: null,
-            internalTestsReady: true,
-            jointTestsReady: false,
-            unitTestProgress: { completed: 0, total: 10 },
-            e2eTestingStatus: '1 week after Unit Testing completion',
-            jointTestingStart: 'After E2E Testing completion',
-            currentVersion: '1.2',
-            createdBy: 'user1',
-            createdAt: '2025-11-20',
-            updatedAt: '2026-01-04'
-        },
-        {
             id: 'UC005',
             name: 'Toxic Factor Detection',
             description: 'AI model to detect and analyze toxic network behaviors and anomalies.',
             tenantId: 'jio',
-            status: 'DRAFT',
+            status: 'DEPLOYMENT_IN_PROGRESS',
             deploymentLocation: 'LAB',
             lifecycleStage: 'INTERNAL_UNIT_TESTING',
             deployedInLab: true,
@@ -193,7 +209,7 @@ const AppData = {
             name: 'Config Drift Detection',
             description: 'AI-based configuration drift detection and compliance monitoring.',
             tenantId: 'jio',
-            status: 'DRAFT',
+            status: 'DEPLOYMENT_IN_PROGRESS',
             deploymentLocation: 'LAB',
             lifecycleStage: 'INTERNAL_UNIT_TESTING',
             deployedInLab: true,
@@ -253,7 +269,7 @@ const AppData = {
             name: 'PSRIT Security Analysis & Mitigation',
             description: 'AI security vulnerability analysis and automated mitigation recommendations.',
             tenantId: 'jio',
-            status: 'DRAFT',
+            status: 'DEPLOYMENT_IN_PROGRESS',
             deploymentLocation: 'LAB',
             lifecycleStage: 'INTERNAL_UNIT_TESTING',
             deployedInLab: false,
@@ -562,4 +578,30 @@ function getOverallTestProgress() {
         totalTests += uc.unitTestProgress.total;
     });
     return { completed: totalCompleted, total: totalTests };
+}
+
+// Check if user can edit a specific tenant
+function canEditTenant(user, tenantId) {
+    if (!user) return false;
+    // Admin can edit all tenants
+    if (user.role === 'ADMIN') return true;
+    // Check editableTenants array for multi-tenant users
+    if (user.editableTenants && user.editableTenants.includes(tenantId)) return true;
+    // Check single tenant assignment
+    if (user.tenantId === tenantId && (user.role === 'TEAM_LEAD' || user.role === 'TEAM_MEMBER')) return true;
+    return false;
+}
+
+// Check if user can view a specific tenant
+function canViewTenant(user, tenantId) {
+    if (!user) return false;
+    // Admin can view all
+    if (user.role === 'ADMIN') return true;
+    // Users with tenantId: null can view all
+    if (user.tenantId === null) return true;
+    // Check editableTenants
+    if (user.editableTenants && user.editableTenants.includes(tenantId)) return true;
+    // Check single tenant
+    if (user.tenantId === tenantId) return true;
+    return false;
 }

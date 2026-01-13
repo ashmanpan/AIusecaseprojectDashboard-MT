@@ -177,6 +177,7 @@
             <li><a href="index.html"><i class="fas fa-chart-line"></i> Dashboard</a></li>
             <li><a href="usecases.html"><i class="fas fa-brain"></i> Use Cases</a></li>
             <li class="active"><a href="infra.html"><i class="fas fa-server"></i> Infra Readiness</a></li>
+            <li><a href="production.html"><i class="fas fa-rocket"></i> Production</a></li>
             <li><a href="approvals.html"><i class="fas fa-clipboard-check"></i> Approvals <span class="badge" id="pendingCount">0</span></a></li>
             <li><a href="settings.html"><i class="fas fa-cog"></i> Settings</a></li>
         </ul>
@@ -310,10 +311,11 @@
                 document.getElementById('userRole').textContent = formatRole(user.role);
                 currentTenant = user.tenantId || 'jio';
 
-                if (user.role !== 'ADMIN') {
-                    document.getElementById('tenantSelector').style.display = 'none';
-                } else {
+                // Show tenant selector for admin and multi-tenant users
+                if (user.role === 'ADMIN' || user.tenantId === null || (user.editableTenants && user.editableTenants.length > 1)) {
                     document.getElementById('tenantSelector').value = currentTenant;
+                } else {
+                    document.getElementById('tenantSelector').style.display = 'none';
                 }
             }
 

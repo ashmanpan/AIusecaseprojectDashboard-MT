@@ -12,7 +12,8 @@ const DYNAMODB_CONFIG = {
         documents: 'aiusecasedashboard-Documents-dev',
         approvals: 'aiusecasedashboard-Approvals-dev',
         activity: 'aiusecasedashboard-Activity-dev',
-        salesStages: 'aiusecasedashboard-SalesStages-dev'
+        salesStages: 'aiusecasedashboard-SalesStages-dev',
+        productionDeployment: 'aiusecasedashboard-ProductionDeployment-dev'
     }
 };
 
