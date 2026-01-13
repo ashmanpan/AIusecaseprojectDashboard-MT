@@ -249,7 +249,7 @@ const AppData = {
             name: 'Audit Agent',
             description: 'AI-powered audit automation for network compliance and security checks.',
             tenantId: 'jio',
-            status: 'PENDING_LEAD_APPROVAL',
+            status: 'TESTING_IN_PROGRESS',
             deploymentLocation: 'LAB',
             lifecycleStage: 'INTERNAL_UNIT_TESTING',
             deployedInLab: false,
