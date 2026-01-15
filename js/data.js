@@ -101,6 +101,41 @@ const AppData = {
             email: 'mdzkhan@cisco.com',
             role: 'TEAM_LEAD',
             tenantId: 'airtel'
+        },
+        {
+            id: 'rtinio',
+            name: 'Roman Tinio',
+            email: 'rtinio@cisco.com',
+            role: 'TEAM_LEAD',
+            tenantId: 'globe'
+        },
+        {
+            id: 'nzhao8',
+            name: 'Ning Zhao',
+            email: 'nzhao8@cisco.com',
+            role: 'TEAM_MEMBER',
+            tenantId: 'globe'
+        },
+        {
+            id: 'rupess',
+            name: 'Rupesh Kumar Sairam',
+            email: 'rupess@cisco.com',
+            role: 'TEAM_MEMBER',
+            tenantId: 'globe'
+        },
+        {
+            id: 'kfria',
+            name: 'Kenneth Fria',
+            email: 'kfria@cisco.com',
+            role: 'TEAM_MEMBER',
+            tenantId: 'globe'
+        },
+        {
+            id: 'angdeguz',
+            name: 'Angelo De Guzman',
+            email: 'angdeguz@cisco.com',
+            role: 'TEAM_LEAD',
+            tenantId: 'globe'
         }
     ],
 
