@@ -32,10 +32,17 @@ function initUseCasePage() {
     updateSubmitButton();
 }
 
+// Format domain icon
+function formatDomainIcon(domain) {
+    const domainConfig = AppData.domains?.find(d => d.id === domain);
+    if (!domainConfig) return '';
+    return `<span class="domain-icon" style="color: ${domainConfig.color};" title="${domainConfig.name}"><i class="fas ${domainConfig.icon}"></i></span>`;
+}
+
 // Render use case details
 function renderUseCaseDetails() {
-    document.getElementById('useCaseTitle').textContent = currentUseCase.name;
-    document.getElementById('ucName').textContent = currentUseCase.name;
+    document.getElementById('useCaseTitle').innerHTML = formatDomainIcon(currentUseCase.domain) + currentUseCase.name;
+    document.getElementById('ucName').innerHTML = formatDomainIcon(currentUseCase.domain) + currentUseCase.name;
     document.getElementById('ucStatus').textContent = formatStatus(currentUseCase.status);
     document.getElementById('ucStatus').className = `status-badge ${currentUseCase.status}`;
     document.getElementById('ucVersion').textContent = `Version ${currentUseCase.currentVersion}`;

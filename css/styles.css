@@ -1085,6 +1085,19 @@ body {
     color: var(--primary-color);
 }
 
+/* Domain icon */
+.domain-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border-radius: 4px;
+    background: rgba(0, 0, 0, 0.05);
+    margin-right: 6px;
+    font-size: 0.75rem;
+}
+
 /* Code style for IDs */
 code {
     background: #f1f5f9;

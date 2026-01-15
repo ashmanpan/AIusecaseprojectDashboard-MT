@@ -95,7 +95,7 @@ function renderUseCasesTable(filter = '', statusFilter = '', stageFilter = '') {
             <td>${index + 1}</td>
             <td>
                 <a href="usecase.html?id=${uc.id}" class="use-case-link">
-                    <strong>${uc.name}</strong>
+                    ${formatDomainIcon(uc.domain)} <strong>${uc.name}</strong>
                 </a>
             </td>
             <td>${formatDeployedInLab(uc)}</td>
@@ -163,6 +163,13 @@ function formatStatus(status) {
         'ARCHIVED': 'Archived'
     };
     return statusMap[status] || status;
+}
+
+// Format domain icon
+function formatDomainIcon(domain) {
+    const domainConfig = AppData.domains?.find(d => d.id === domain);
+    if (!domainConfig) return '';
+    return `<span class="domain-icon" style="color: ${domainConfig.color};" title="${domainConfig.name}"><i class="fas ${domainConfig.icon}"></i></span>`;
 }
 
 // Format role
