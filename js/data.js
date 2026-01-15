@@ -28,6 +28,8 @@ const AppData = {
     tenants: {
         'jio': { id: 'jio', name: 'Jio India' },
         'airtel': { id: 'airtel', name: 'Airtel India - IP Transport' },
+        'airtel-it': { id: 'airtel-it', name: 'Airtel IT' },
+        'airtel-mpbn': { id: 'airtel-mpbn', name: 'Airtel MPBN' },
         'ioh': { id: 'ioh', name: 'Indosat Ooredoo Hutchison (IOH) Indonesia' },
         'optus': { id: 'optus', name: 'Optus Australia' },
         'softbank': { id: 'softbank', name: 'SoftBank Japan' },
