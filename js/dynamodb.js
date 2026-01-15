@@ -251,17 +251,14 @@ const InfraDB = {
 const SalesDB = {
     // Get sales stage for a tenant
     async getStage(tenantId) {
-        console.log('SalesDB.getStage called for tenant:', tenantId);
         return executeWithRetry(async () => {
             const client = await getDocClient();
             const params = {
                 TableName: DYNAMODB_CONFIG.tables.salesStages,
                 Key: { tenantId: tenantId }
             };
-            console.log('DynamoDB query params:', JSON.stringify(params));
 
             const result = await client.get(params).promise();
-            console.log('DynamoDB result:', JSON.stringify(result));
             return result.Item || { tenantId, currentStage: 1, stageHistory: [] };
         }).catch(error => {
             console.error('Error fetching sales stage:', error);
