@@ -597,3 +597,294 @@ window.onclick = function(event) {
         event.target.classList.remove('active');
     }
 };
+
+// ============================================
+// Excel Test Cases Import/Export Functions
+// ============================================
+
+// Download test case template
+function downloadTestCaseTemplate() {
+    // Define columns
+    const headers = [
+        'Test Case Name',  // Mandatory
+        'Description',     // Optional
+        'Priority',        // Optional - HIGH, MEDIUM, LOW
+        'Status',          // Optional - PENDING, PASSED, FAILED, BLOCKED
+        'Test Case Doc URL', // Optional
+        'Test Result URL',   // Optional
+        'Jira URL'           // Optional
+    ];
+
+    // Sample data rows to help users understand the format
+    const sampleData = [
+        ['Login Authentication Test', 'Verify user can log in with valid credentials', 'HIGH', 'PENDING', 'https://docs.example.com/tc001', '', ''],
+        ['Password Reset Flow', 'Test password reset functionality end to end', 'MEDIUM', 'PENDING', '', '', 'https://jira.example.com/PROJ-123'],
+        ['API Rate Limiting', 'Verify API rate limits are enforced correctly', 'LOW', 'PENDING', '', '', '']
+    ];
+
+    // Create workbook and worksheet
+    const wb = XLSX.utils.book_new();
+    const wsData = [headers, ...sampleData];
+    const ws = XLSX.utils.aoa_to_sheet(wsData);
+
+    // Set column widths
+    ws['!cols'] = [
+        { wch: 30 },  // Test Case Name
+        { wch: 50 },  // Description
+        { wch: 10 },  // Priority
+        { wch: 10 },  // Status
+        { wch: 35 },  // Test Case Doc URL
+        { wch: 35 },  // Test Result URL
+        { wch: 35 }   // Jira URL
+    ];
+
+    // Add worksheet to workbook
+    XLSX.utils.book_append_sheet(wb, ws, 'Test Cases');
+
+    // Add instructions sheet
+    const instructionsData = [
+        ['Test Cases Import Template Instructions'],
+        [''],
+        ['MANDATORY COLUMNS:'],
+        ['- Test Case Name: The name of your test case (required)'],
+        [''],
+        ['OPTIONAL COLUMNS:'],
+        ['- Description: Detailed description of the test case'],
+        ['- Priority: HIGH, MEDIUM, or LOW (defaults to MEDIUM if empty)'],
+        ['- Status: PENDING, PASSED, FAILED, or BLOCKED (defaults to PENDING if empty)'],
+        ['- Test Case Doc URL: Link to the test case documentation'],
+        ['- Test Result URL: Link to test results or evidence'],
+        ['- Jira URL: Link to Jira ticket or issue tracker'],
+        [''],
+        ['NOTES:'],
+        ['- Delete the sample data rows before importing'],
+        ['- Do not change the column headers'],
+        ['- Empty rows will be skipped'],
+        ['- Invalid URLs will be stored but may not work as links']
+    ];
+    const wsInstructions = XLSX.utils.aoa_to_sheet(instructionsData);
+    wsInstructions['!cols'] = [{ wch: 60 }];
+    XLSX.utils.book_append_sheet(wb, wsInstructions, 'Instructions');
+
+    // Generate filename with use case name
+    const fileName = `TestCases_Template_${currentUseCase.name.replace(/[^a-zA-Z0-9]/g, '_')}.xlsx`;
+
+    // Download the file
+    XLSX.writeFile(wb, fileName);
+    showNotification('Template downloaded!', 'success');
+}
+
+// Open upload test cases modal
+function openUploadTestCasesModal() {
+    document.getElementById('uploadTestCasesModal').classList.add('active');
+    document.getElementById('uploadPreview').style.display = 'none';
+    document.getElementById('importBtn').disabled = true;
+    document.getElementById('testCasesFile').value = '';
+}
+
+// Store parsed data for import
+let parsedTestCases = [];
+
+// Handle file selection and preview
+document.addEventListener('DOMContentLoaded', function() {
+    const fileInput = document.getElementById('testCasesFile');
+    if (fileInput) {
+        fileInput.addEventListener('change', handleTestCasesFileSelect);
+    }
+});
+
+function handleTestCasesFileSelect(event) {
+    const file = event.target.files[0];
+    if (!file) {
+        document.getElementById('uploadPreview').style.display = 'none';
+        document.getElementById('importBtn').disabled = true;
+        return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        try {
+            const data = new Uint8Array(e.target.result);
+            const workbook = XLSX.read(data, { type: 'array' });
+
+            // Get first sheet (Test Cases)
+            const sheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[sheetName];
+
+            // Convert to JSON
+            const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+
+            if (jsonData.length < 2) {
+                showNotification('Excel file appears to be empty or only has headers', 'warning');
+                return;
+            }
+
+            // Get headers (first row)
+            const headers = jsonData[0];
+
+            // Find column indices
+            const colMap = {
+                name: headers.findIndex(h => h && h.toString().toLowerCase().includes('test case name')),
+                description: headers.findIndex(h => h && h.toString().toLowerCase().includes('description')),
+                priority: headers.findIndex(h => h && h.toString().toLowerCase().includes('priority')),
+                status: headers.findIndex(h => h && h.toString().toLowerCase().includes('status')),
+                testCaseDoc: headers.findIndex(h => h && h.toString().toLowerCase().includes('test case doc')),
+                testResult: headers.findIndex(h => h && h.toString().toLowerCase().includes('test result')),
+                jira: headers.findIndex(h => h && h.toString().toLowerCase().includes('jira'))
+            };
+
+            // Check mandatory column
+            if (colMap.name === -1) {
+                showNotification('Missing mandatory column: Test Case Name', 'danger');
+                return;
+            }
+
+            // Parse data rows (skip header)
+            parsedTestCases = [];
+            for (let i = 1; i < jsonData.length; i++) {
+                const row = jsonData[i];
+
+                // Skip empty rows
+                if (!row || !row[colMap.name]) continue;
+
+                const testCase = {
+                    name: row[colMap.name]?.toString().trim() || '',
+                    description: colMap.description !== -1 ? (row[colMap.description]?.toString().trim() || '') : '',
+                    priority: colMap.priority !== -1 ? normalizeValue(row[colMap.priority], ['HIGH', 'MEDIUM', 'LOW'], 'MEDIUM') : 'MEDIUM',
+                    status: colMap.status !== -1 ? normalizeValue(row[colMap.status], ['PENDING', 'PASSED', 'FAILED', 'BLOCKED'], 'PENDING') : 'PENDING',
+                    testCaseDoc: colMap.testCaseDoc !== -1 ? (row[colMap.testCaseDoc]?.toString().trim() || '') : '',
+                    testResult: colMap.testResult !== -1 ? (row[colMap.testResult]?.toString().trim() || '') : '',
+                    jira: colMap.jira !== -1 ? (row[colMap.jira]?.toString().trim() || '') : ''
+                };
+
+                if (testCase.name) {
+                    parsedTestCases.push(testCase);
+                }
+            }
+
+            // Show preview
+            if (parsedTestCases.length > 0) {
+                showPreview(parsedTestCases);
+                document.getElementById('importBtn').disabled = false;
+            } else {
+                showNotification('No valid test cases found in the file', 'warning');
+                document.getElementById('uploadPreview').style.display = 'none';
+                document.getElementById('importBtn').disabled = true;
+            }
+
+        } catch (error) {
+            console.error('Error parsing Excel file:', error);
+            showNotification('Error parsing Excel file. Please check the format.', 'danger');
+        }
+    };
+
+    reader.readAsArrayBuffer(file);
+}
+
+// Normalize values to allowed options
+function normalizeValue(value, allowedValues, defaultValue) {
+    if (!value) return defaultValue;
+    const normalized = value.toString().toUpperCase().trim();
+    return allowedValues.includes(normalized) ? normalized : defaultValue;
+}
+
+// Show preview of parsed data
+function showPreview(testCases) {
+    const previewDiv = document.getElementById('uploadPreview');
+    const previewTable = document.getElementById('previewTable');
+    const previewCount = document.getElementById('previewCount');
+
+    // Show first 5 rows
+    const previewData = testCases.slice(0, 5);
+
+    let tableHtml = `
+        <table class="data-table preview-table">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Test Case Name</th>
+                    <th>Priority</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+    `;
+
+    previewData.forEach((tc, idx) => {
+        tableHtml += `
+            <tr>
+                <td>${idx + 1}</td>
+                <td>${escapeHtml(tc.name.substring(0, 50))}${tc.name.length > 50 ? '...' : ''}</td>
+                <td><span class="priority-badge ${tc.priority.toLowerCase()}">${tc.priority}</span></td>
+                <td><span class="status-badge ${tc.status}">${tc.status}</span></td>
+            </tr>
+        `;
+    });
+
+    tableHtml += '</tbody></table>';
+
+    previewTable.innerHTML = tableHtml;
+    previewCount.innerHTML = `<strong>Total: ${testCases.length} test case(s) found</strong>` +
+        (testCases.length > 5 ? ` (showing first 5)` : '');
+
+    previewDiv.style.display = 'block';
+}
+
+// Escape HTML to prevent XSS
+function escapeHtml(str) {
+    if (!str) return '';
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+}
+
+// Upload/Import test cases
+function uploadTestCases(event) {
+    event.preventDefault();
+
+    if (parsedTestCases.length === 0) {
+        showNotification('No test cases to import', 'warning');
+        return;
+    }
+
+    // Initialize test cases array for this use case if needed
+    if (!AppData.testCases[currentUseCaseId]) {
+        AppData.testCases[currentUseCaseId] = [];
+    }
+
+    const existingCount = AppData.testCases[currentUseCaseId].length;
+
+    // Add test cases
+    parsedTestCases.forEach((tc, idx) => {
+        const testCase = {
+            id: `TC${currentUseCaseId.replace('UC', '')}-${String(existingCount + idx + 1).padStart(3, '0')}`,
+            name: tc.name,
+            description: tc.description,
+            priority: tc.priority,
+            status: tc.status,
+            lastRun: tc.status !== 'PENDING' ? new Date().toISOString().split('T')[0] : null,
+            links: {
+                testCaseDoc: tc.testCaseDoc || null,
+                testResult: tc.testResult || null,
+                jira: tc.jira || null
+            }
+        };
+
+        AppData.testCases[currentUseCaseId].push(testCase);
+    });
+
+    const importedCount = parsedTestCases.length;
+
+    // Clear and close modal
+    parsedTestCases = [];
+    closeModal('uploadTestCasesModal');
+    document.getElementById('testCasesFile').value = '';
+    document.getElementById('uploadPreview').style.display = 'none';
+    document.getElementById('importBtn').disabled = true;
+
+    // Refresh views
+    renderTestCases();
+    renderTestProgress();
+
+    showNotification(`Successfully imported ${importedCount} test case(s)!`, 'success');
+}

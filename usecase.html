@@ -9,6 +9,8 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- SheetJS for Excel handling -->
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
 </head>
 <body>
     <!-- Header -->
@@ -117,6 +119,12 @@
                         <option value="PENDING">Pending</option>
                         <option value="BLOCKED">Blocked</option>
                     </select>
+                    <button class="btn btn-secondary" onclick="downloadTestCaseTemplate()" title="Download Excel Template">
+                        <i class="fas fa-download"></i> Template
+                    </button>
+                    <button class="btn btn-secondary" onclick="openUploadTestCasesModal()" title="Upload Test Cases from Excel">
+                        <i class="fas fa-upload"></i> Import
+                    </button>
                     <button class="btn btn-primary" onclick="openAddTestCaseModal()">+ Add Test Case</button>
                 </div>
             </div>
@@ -297,6 +305,54 @@
                     <button class="btn btn-secondary" onclick="editTestCase()">Edit</button>
                 </div>
             </div>
+        </div>
+    </div>
+
+    <!-- Upload Test Cases Modal -->
+    <div id="uploadTestCasesModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('uploadTestCasesModal')">&times;</span>
+            <h2><i class="fas fa-file-excel"></i> Import Test Cases from Excel</h2>
+            <div class="upload-instructions">
+                <p><strong>Instructions:</strong></p>
+                <ol>
+                    <li>Download the template using the "Template" button</li>
+                    <li>Fill in your test cases (see column descriptions below)</li>
+                    <li>Upload the completed Excel file</li>
+                </ol>
+                <div class="column-info">
+                    <p><strong>Mandatory Columns:</strong></p>
+                    <ul>
+                        <li><code>Test Case Name</code> - Name of the test case</li>
+                    </ul>
+                    <p><strong>Optional Columns:</strong></p>
+                    <ul>
+                        <li><code>Description</code> - Detailed description</li>
+                        <li><code>Priority</code> - HIGH, MEDIUM, or LOW (default: MEDIUM)</li>
+                        <li><code>Status</code> - PENDING, PASSED, FAILED, or BLOCKED (default: PENDING)</li>
+                        <li><code>Test Case Doc URL</code> - Link to test case document</li>
+                        <li><code>Test Result URL</code> - Link to test results/evidence</li>
+                        <li><code>Jira URL</code> - Link to Jira/issue tracker</li>
+                    </ul>
+                </div>
+            </div>
+            <form id="uploadTestCasesForm" onsubmit="uploadTestCases(event)">
+                <div class="form-group">
+                    <label for="testCasesFile">Select Excel File (.xlsx) *</label>
+                    <input type="file" id="testCasesFile" accept=".xlsx,.xls" required>
+                </div>
+                <div id="uploadPreview" class="upload-preview" style="display:none;">
+                    <h4>Preview (first 5 rows):</h4>
+                    <div id="previewTable"></div>
+                    <p id="previewCount"></p>
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('uploadTestCasesModal')">Cancel</button>
+                    <button type="submit" class="btn btn-primary" id="importBtn" disabled>
+                        <i class="fas fa-file-import"></i> Import Test Cases
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
 
