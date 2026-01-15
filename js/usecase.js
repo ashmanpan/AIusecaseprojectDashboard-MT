@@ -586,7 +586,7 @@ function editUseCase() {
 }
 
 // Save use case edits
-function saveUseCaseEdits(event) {
+async function saveUseCaseEdits(event) {
     event.preventDefault();
 
     // Update use case object
@@ -601,19 +601,22 @@ function saveUseCaseEdits(event) {
     currentUseCase.jointTestsReady = document.getElementById('editJointTestsReady').checked;
     currentUseCase.updatedAt = new Date().toISOString().split('T')[0];
 
-    // Update in AppData.useCases array
+    // Update in AppData.useCases array (for immediate UI update)
     const index = AppData.useCases.findIndex(uc => uc.id === currentUseCaseId);
     if (index !== -1) {
         AppData.useCases[index] = currentUseCase;
     }
 
-    // Save to localStorage for persistence
-    saveUseCaseToStorage(currentUseCase);
+    // Save to DynamoDB
+    const result = await UseCaseDB.updateUseCase(currentUseCase);
 
-    // Close modal and refresh display
-    closeModal('editUseCaseModal');
-    initUseCasePage();
-    showNotification('Use case updated successfully!', 'success');
+    if (result.success) {
+        closeModal('editUseCaseModal');
+        initUseCasePage();
+        showNotification('Use case updated successfully!', 'success');
+    } else {
+        showNotification('Error saving changes: ' + result.error, 'danger');
+    }
 }
 
 // Show notification

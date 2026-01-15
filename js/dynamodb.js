@@ -307,9 +307,77 @@ const SalesDB = {
     }
 };
 
+/**
+ * Use Case Database Operations
+ */
+const UseCaseDB = {
+    // Get a single use case by ID
+    async getUseCase(useCaseId, tenantId) {
+        return executeWithRetry(async () => {
+            const client = await getDocClient();
+            const params = {
+                TableName: DYNAMODB_CONFIG.tables.useCases,
+                Key: {
+                    id: useCaseId,
+                    tenantId: tenantId
+                }
+            };
+
+            const result = await client.get(params).promise();
+            return result.Item || null;
+        }).catch(error => {
+            console.error('Error fetching use case:', error);
+            return null;
+        });
+    },
+
+    // Update a use case
+    async updateUseCase(useCase) {
+        return executeWithRetry(async () => {
+            const client = await getDocClient();
+            const now = new Date().toISOString();
+
+            const params = {
+                TableName: DYNAMODB_CONFIG.tables.useCases,
+                Item: {
+                    ...useCase,
+                    updatedAt: now
+                }
+            };
+
+            await client.put(params).promise();
+            return { success: true, data: useCase };
+        }).catch(error => {
+            console.error('Error updating use case:', error);
+            return { success: false, error: error.message };
+        });
+    },
+
+    // Get all use cases for a tenant
+    async getUseCasesByTenant(tenantId) {
+        return executeWithRetry(async () => {
+            const client = await getDocClient();
+            const params = {
+                TableName: DYNAMODB_CONFIG.tables.useCases,
+                FilterExpression: 'tenantId = :tenantId',
+                ExpressionAttributeValues: {
+                    ':tenantId': tenantId
+                }
+            };
+
+            const result = await client.scan(params).promise();
+            return result.Items || [];
+        }).catch(error => {
+            console.error('Error fetching use cases:', error);
+            return [];
+        });
+    }
+};
+
 // Export
 window.InfraDB = InfraDB;
 window.SalesDB = SalesDB;
+window.UseCaseDB = UseCaseDB;
 window.SALES_STAGES = SALES_STAGES;
 window.getDocClient = getDocClient;
 window.resetDocClient = resetDocClient;
