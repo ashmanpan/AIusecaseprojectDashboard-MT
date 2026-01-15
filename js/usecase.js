@@ -568,10 +568,49 @@ function formatFileSize(bytes) {
     return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
 }
 
-// Edit use case
+// Edit use case - open modal with current values
 function editUseCase() {
-    // In a real app, this would open an edit modal or navigate to edit page
-    alert('Edit functionality would open here.');
+    // Populate form with current values
+    document.getElementById('editUcName').value = currentUseCase.name || '';
+    document.getElementById('editUcDescription').value = currentUseCase.description || '';
+    document.getElementById('editDeploymentLocation').value = currentUseCase.deploymentLocation || 'LAB';
+    document.getElementById('editLifecycleStage').value = currentUseCase.lifecycleStage || 'INTERNAL_UNIT_TESTING';
+    document.getElementById('editStatus').value = currentUseCase.status || 'DRAFT';
+    document.getElementById('editLabDeployDate').value = currentUseCase.deployedInLabDate || '';
+    document.getElementById('editDeployedInLab').checked = currentUseCase.deployedInLab || false;
+    document.getElementById('editInternalTestsReady').checked = currentUseCase.internalTestsReady || false;
+    document.getElementById('editJointTestsReady').checked = currentUseCase.jointTestsReady || false;
+
+    // Open modal
+    document.getElementById('editUseCaseModal').classList.add('active');
+}
+
+// Save use case edits
+function saveUseCaseEdits(event) {
+    event.preventDefault();
+
+    // Update use case object
+    currentUseCase.name = document.getElementById('editUcName').value;
+    currentUseCase.description = document.getElementById('editUcDescription').value;
+    currentUseCase.deploymentLocation = document.getElementById('editDeploymentLocation').value;
+    currentUseCase.lifecycleStage = document.getElementById('editLifecycleStage').value;
+    currentUseCase.status = document.getElementById('editStatus').value;
+    currentUseCase.deployedInLabDate = document.getElementById('editLabDeployDate').value || null;
+    currentUseCase.deployedInLab = document.getElementById('editDeployedInLab').checked;
+    currentUseCase.internalTestsReady = document.getElementById('editInternalTestsReady').checked;
+    currentUseCase.jointTestsReady = document.getElementById('editJointTestsReady').checked;
+    currentUseCase.updatedAt = new Date().toISOString().split('T')[0];
+
+    // Update in AppData.useCases array
+    const index = AppData.useCases.findIndex(uc => uc.id === currentUseCaseId);
+    if (index !== -1) {
+        AppData.useCases[index] = currentUseCase;
+    }
+
+    // Close modal and refresh display
+    closeModal('editUseCaseModal');
+    initUseCasePage();
+    showNotification('Use case updated successfully!', 'success');
 }
 
 // Show notification

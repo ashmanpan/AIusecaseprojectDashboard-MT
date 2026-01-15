@@ -356,6 +356,89 @@
         </div>
     </div>
 
+    <!-- Edit Use Case Modal -->
+    <div id="editUseCaseModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('editUseCaseModal')">&times;</span>
+            <h2><i class="fas fa-edit"></i> Edit Use Case</h2>
+            <form id="editUseCaseForm" onsubmit="saveUseCaseEdits(event)">
+                <div class="form-group">
+                    <label for="editUcName">Use Case Name *</label>
+                    <input type="text" id="editUcName" required>
+                </div>
+                <div class="form-group">
+                    <label for="editUcDescription">Description</label>
+                    <textarea id="editUcDescription" rows="3"></textarea>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="editDeploymentLocation">Deployment Location</label>
+                        <select id="editDeploymentLocation">
+                            <option value="LAB">Lab</option>
+                            <option value="ON_PREM">On-Premises</option>
+                            <option value="POC_CISCO_LAB">POC Cisco Lab</option>
+                            <option value="POC_CLOUD">POC on Cloud</option>
+                            <option value="PROD_NON_COMMERCIAL">Prod (Non-Commercial)</option>
+                            <option value="PROD_COMMERCIAL">Prod (Commercial)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="editLifecycleStage">Lifecycle Stage</label>
+                        <select id="editLifecycleStage">
+                            <option value="INTERNAL_UNIT_TESTING">Internal Unit Testing</option>
+                            <option value="INTERNAL_E2E_TESTING">Internal E2E Testing</option>
+                            <option value="JOINT_TESTING">Joint Testing</option>
+                            <option value="APPROVED_BY_JOINT_TEAM">Approved by Joint Team</option>
+                            <option value="DEPLOYED">Deployed</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="editStatus">Status</label>
+                        <select id="editStatus">
+                            <option value="DRAFT">Draft</option>
+                            <option value="IN_PROGRESS">In Progress</option>
+                            <option value="TESTING_IN_PROGRESS">Testing In Progress</option>
+                            <option value="PENDING_LEAD_APPROVAL">Pending Lead Approval</option>
+                            <option value="PENDING_CUSTOMER_APPROVAL">Pending Customer Approval</option>
+                            <option value="CHANGES_REQUESTED">Changes Requested</option>
+                            <option value="APPROVED">Approved</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="editLabDeployDate">Lab Deploy Date</label>
+                        <input type="date" id="editLabDeployDate">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="editDeployedInLab">
+                            Deployed in Lab
+                        </label>
+                    </div>
+                    <div class="form-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="editInternalTestsReady">
+                            Internal Tests Ready
+                        </label>
+                    </div>
+                    <div class="form-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="editJointTestsReady">
+                            Joint Tests Ready
+                        </label>
+                    </div>
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('editUseCaseModal')">Cancel</button>
+                    <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <script src="js/auth.js"></script>
     <script src="js/data.js"></script>
     <script src="js/usecase.js"></script>
