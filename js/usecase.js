@@ -607,6 +607,9 @@ function saveUseCaseEdits(event) {
         AppData.useCases[index] = currentUseCase;
     }
 
+    // Save to localStorage for persistence
+    saveUseCaseToStorage(currentUseCase);
+
     // Close modal and refresh display
     closeModal('editUseCaseModal');
     initUseCasePage();

@@ -1,6 +1,36 @@
 // Sample Data - This will be replaced with DynamoDB data
 // Multi-tenant data structure
 
+// LocalStorage key for use case edits
+const USE_CASE_EDITS_KEY = 'aiusecasedashboard_usecase_edits';
+
+// Save use case edits to localStorage
+function saveUseCaseToStorage(useCase) {
+    try {
+        const edits = JSON.parse(localStorage.getItem(USE_CASE_EDITS_KEY) || '{}');
+        edits[useCase.id] = useCase;
+        localStorage.setItem(USE_CASE_EDITS_KEY, JSON.stringify(edits));
+    } catch (e) {
+        console.error('Error saving use case to localStorage:', e);
+    }
+}
+
+// Load use case edits from localStorage and merge with static data
+function loadUseCaseEdits(useCases) {
+    try {
+        const edits = JSON.parse(localStorage.getItem(USE_CASE_EDITS_KEY) || '{}');
+        return useCases.map(uc => {
+            if (edits[uc.id]) {
+                return { ...uc, ...edits[uc.id] };
+            }
+            return uc;
+        });
+    } catch (e) {
+        console.error('Error loading use case edits from localStorage:', e);
+        return useCases;
+    }
+}
+
 // Get logged-in user from session
 function getLoggedInUser() {
     if (window.Auth && Auth.getCurrentUser) {
@@ -734,6 +764,9 @@ const AppData = {
         { icon: 'fa-plus-circle', iconClass: 'primary', text: 'UC-003 "Customer Experience" created', time: '2 days ago' }
     ]
 };
+
+// Load any saved use case edits from localStorage
+AppData.useCases = loadUseCaseEdits(AppData.useCases);
 
 // Helper functions
 function getUseCase(id) {
