@@ -5,10 +5,32 @@ let eventListenersSetup = false;
 let deploymentChartInstance = null;
 let lifecycleChartInstance = null;
 let testProgressChartInstance = null;
+let useCasesLoaded = false;
 
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', async function() {
+    await loadUseCasesFromDynamoDB();
     initDashboard();
 });
+
+// Load use cases from DynamoDB and replace AppData.useCases
+async function loadUseCasesFromDynamoDB() {
+    if (useCasesLoaded) return;
+
+    try {
+        // Load all use cases from DynamoDB
+        const useCases = await UseCaseDB.getAllUseCases();
+        if (useCases && useCases.length > 0) {
+            AppData.useCases = useCases;
+            console.log('Loaded', useCases.length, 'use cases from DynamoDB');
+        } else {
+            console.log('No use cases in DynamoDB, using static data');
+        }
+        useCasesLoaded = true;
+    } catch (error) {
+        console.error('Error loading use cases from DynamoDB:', error);
+        // Fall back to static data in AppData.useCases
+    }
+}
 
 function initDashboard() {
     // Update user name and role in header

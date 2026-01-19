@@ -309,22 +309,28 @@ const SalesDB = {
 
 /**
  * Use Case Database Operations
+ * Note: DynamoDB table has 'id' as the only key (format: tenantId-UCxxx)
  */
 const UseCaseDB = {
-    // Get a single use case by ID
-    async getUseCase(useCaseId, tenantId) {
+    // Get a single use case by ID (id format: tenantId-UCxxx)
+    async getUseCase(useCaseId) {
         return executeWithRetry(async () => {
             const client = await getDocClient();
             const params = {
                 TableName: DYNAMODB_CONFIG.tables.useCases,
-                Key: {
-                    id: useCaseId,
-                    tenantId: tenantId
-                }
+                Key: { id: useCaseId }
             };
 
             const result = await client.get(params).promise();
-            return result.Item || null;
+            if (result.Item) {
+                // Parse JSON strings back to objects
+                const item = result.Item;
+                if (typeof item.unitTestProgress === 'string') {
+                    item.unitTestProgress = JSON.parse(item.unitTestProgress);
+                }
+                return item;
+            }
+            return null;
         }).catch(error => {
             console.error('Error fetching use case:', error);
             return null;
@@ -337,12 +343,15 @@ const UseCaseDB = {
             const client = await getDocClient();
             const now = new Date().toISOString();
 
+            // Ensure unitTestProgress is stored as string for DynamoDB
+            const itemToSave = { ...useCase, updatedAt: now };
+            if (typeof itemToSave.unitTestProgress === 'object') {
+                itemToSave.unitTestProgress = JSON.stringify(itemToSave.unitTestProgress);
+            }
+
             const params = {
                 TableName: DYNAMODB_CONFIG.tables.useCases,
-                Item: {
-                    ...useCase,
-                    updatedAt: now
-                }
+                Item: itemToSave
             };
 
             await client.put(params).promise();
@@ -366,9 +375,37 @@ const UseCaseDB = {
             };
 
             const result = await client.scan(params).promise();
-            return result.Items || [];
+            // Parse JSON strings back to objects
+            return (result.Items || []).map(item => {
+                if (typeof item.unitTestProgress === 'string') {
+                    item.unitTestProgress = JSON.parse(item.unitTestProgress);
+                }
+                return item;
+            });
         }).catch(error => {
             console.error('Error fetching use cases:', error);
+            return [];
+        });
+    },
+
+    // Get all use cases (for admin/multi-tenant views)
+    async getAllUseCases() {
+        return executeWithRetry(async () => {
+            const client = await getDocClient();
+            const params = {
+                TableName: DYNAMODB_CONFIG.tables.useCases
+            };
+
+            const result = await client.scan(params).promise();
+            // Parse JSON strings back to objects
+            return (result.Items || []).map(item => {
+                if (typeof item.unitTestProgress === 'string') {
+                    item.unitTestProgress = JSON.parse(item.unitTestProgress);
+                }
+                return item;
+            });
+        }).catch(error => {
+            console.error('Error fetching all use cases:', error);
             return [];
         });
     }

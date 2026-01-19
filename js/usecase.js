@@ -3,7 +3,7 @@
 let currentUseCaseId = null;
 let currentUseCase = null;
 
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', async function() {
     // Get use case ID from URL
     const urlParams = new URLSearchParams(window.location.search);
     currentUseCaseId = urlParams.get('id');
@@ -13,8 +13,16 @@ document.addEventListener('DOMContentLoaded', function() {
         return;
     }
 
-    currentUseCase = getUseCase(currentUseCaseId);
+    // Load use case from DynamoDB
+    currentUseCase = await UseCaseDB.getUseCase(currentUseCaseId);
+
+    // Fallback to static data if not found in DynamoDB
     if (!currentUseCase) {
+        currentUseCase = getUseCase(currentUseCaseId);
+    }
+
+    if (!currentUseCase) {
+        console.error('Use case not found:', currentUseCaseId);
         window.location.href = 'index.html';
         return;
     }
