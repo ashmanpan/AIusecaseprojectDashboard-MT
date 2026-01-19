@@ -214,17 +214,55 @@ function formatDate(dateStr) {
 }
 
 // Render recent activity
-function renderRecentActivity() {
+async function renderRecentActivity() {
     const activityList = document.getElementById('activityList');
-    activityList.innerHTML = AppData.recentActivity.map(activity => `
+
+    // Load activity from DynamoDB
+    let activities = [];
+    try {
+        activities = await ActivityDB.getActivity(AppData.currentTenant, 10);
+    } catch (error) {
+        console.error('Error loading activity from DynamoDB:', error);
+    }
+
+    // Fallback to static data if no DynamoDB data
+    if (activities.length === 0 && AppData.recentActivity) {
+        activities = AppData.recentActivity;
+    }
+
+    if (activities.length === 0) {
+        activityList.innerHTML = '<li class="text-muted">No recent activity</li>';
+        return;
+    }
+
+    activityList.innerHTML = activities.map(activity => {
+        const time = activity.time || formatTimeAgo(activity.createdAt);
+        return `
         <li>
             <div class="activity-text">
-                <i class="fas ${activity.icon} activity-icon ${activity.iconClass}"></i>
+                <i class="fas ${activity.icon || 'fa-circle-info'} activity-icon ${activity.iconClass || ''}"></i>
                 <span>${activity.text}</span>
             </div>
-            <span class="activity-time">${activity.time}</span>
+            <span class="activity-time">${time}</span>
         </li>
-    `).join('');
+    `}).join('');
+}
+
+// Format time ago
+function formatTimeAgo(dateStr) {
+    if (!dateStr) return '';
+    const date = new Date(dateStr);
+    const now = new Date();
+    const diffMs = now - date;
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    if (diffDays < 7) return `${diffDays}d ago`;
+    return formatDate(dateStr);
 }
 
 // Initialize charts

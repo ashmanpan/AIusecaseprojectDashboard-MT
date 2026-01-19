@@ -2,6 +2,9 @@
 
 let currentUseCaseId = null;
 let currentUseCase = null;
+let currentTestCases = [];
+let currentDocuments = [];
+let currentApprovals = [];
 
 document.addEventListener('DOMContentLoaded', async function() {
     // Get use case ID from URL
@@ -27,8 +30,39 @@ document.addEventListener('DOMContentLoaded', async function() {
         return;
     }
 
+    // Load test cases, documents, and approvals from DynamoDB
+    await loadUseCaseData();
+
     initUseCasePage();
 });
+
+// Load test cases, documents, and approvals from DynamoDB
+async function loadUseCaseData() {
+    try {
+        // Load in parallel for better performance
+        const [testCases, documents, approvals] = await Promise.all([
+            TestCaseDB.getTestCases(currentUseCaseId),
+            DocumentDB.getDocuments(currentUseCaseId),
+            ApprovalDB.getApprovals(currentUseCaseId)
+        ]);
+
+        currentTestCases = testCases || [];
+        currentDocuments = documents || [];
+        currentApprovals = approvals || [];
+
+        console.log('Loaded from DynamoDB:', {
+            testCases: currentTestCases.length,
+            documents: currentDocuments.length,
+            approvals: currentApprovals.length
+        });
+    } catch (error) {
+        console.error('Error loading use case data from DynamoDB:', error);
+        // Fall back to empty arrays
+        currentTestCases = [];
+        currentDocuments = [];
+        currentApprovals = [];
+    }
+}
 
 function initUseCasePage() {
     renderUseCaseDetails();
@@ -101,14 +135,13 @@ function formatDate(dateStr) {
 
 // Render test progress
 function renderTestProgress() {
-    const testCases = getTestCases(currentUseCaseId);
     const unitProgress = currentUseCase.unitTestProgress;
 
     // Calculate from test cases if available
     let passed = 0, failed = 0, pending = 0, blocked = 0;
 
-    if (testCases.length > 0) {
-        testCases.forEach(tc => {
+    if (currentTestCases.length > 0) {
+        currentTestCases.forEach(tc => {
             if (tc.status === 'PASSED') passed++;
             else if (tc.status === 'FAILED') failed++;
             else if (tc.status === 'BLOCKED') blocked++;
@@ -120,7 +153,7 @@ function renderTestProgress() {
         pending = unitProgress.total - unitProgress.completed;
     }
 
-    const total = testCases.length || unitProgress.total;
+    const total = currentTestCases.length || unitProgress.total;
 
     document.getElementById('totalTests').textContent = total;
     document.getElementById('passedTests').textContent = passed;
@@ -138,7 +171,7 @@ function renderTestProgress() {
 
 // Render test cases table
 function renderTestCases(statusFilter = '') {
-    let testCases = getTestCases(currentUseCaseId);
+    let testCases = [...currentTestCases];
 
     if (statusFilter) {
         testCases = testCases.filter(tc => tc.status === statusFilter);
@@ -160,39 +193,42 @@ function renderTestCases(statusFilter = '') {
         return;
     }
 
-    tbody.innerHTML = testCases.map(tc => `
+    tbody.innerHTML = testCases.map(tc => {
+        const tcId = tc.testCaseId || tc.id;
+        const links = tc.links || {};
+        return `
         <tr>
-            <td><code>${tc.id}</code></td>
+            <td><code>${tcId}</code></td>
             <td>
-                <a href="#" onclick="openTestDetail('${tc.id}'); return false;">
+                <a href="#" onclick="openTestDetail('${tcId}'); return false;">
                     ${tc.name}
                 </a>
             </td>
-            <td><span class="priority-badge ${tc.priority.toLowerCase()}">${tc.priority}</span></td>
+            <td><span class="priority-badge ${(tc.priority || 'MEDIUM').toLowerCase()}">${tc.priority || 'MEDIUM'}</span></td>
             <td><span class="status-badge ${tc.status}">${tc.status}</span></td>
-            <td>${tc.lastRun ? formatDate(tc.lastRun) : '<span class="text-muted">Not run</span>'}</td>
+            <td>${tc.lastRun || tc.updatedAt ? formatDate(tc.lastRun || tc.updatedAt) : '<span class="text-muted">Not run</span>'}</td>
             <td>
                 <div class="link-icons">
-                    ${renderLinkIcon(tc.links.testCaseDoc, 'fa-file-alt', 'Test Case Doc')}
-                    ${renderLinkIcon(tc.links.testResult, 'fa-chart-bar', 'Test Results')}
-                    ${renderLinkIcon(tc.links.jira, 'fa-bug', 'Jira Ticket')}
+                    ${renderLinkIcon(links.testCaseDoc, 'fa-file-alt', 'Test Case Doc')}
+                    ${renderLinkIcon(links.testResult, 'fa-chart-bar', 'Test Results')}
+                    ${renderLinkIcon(links.jira, 'fa-bug', 'Jira Ticket')}
                 </div>
             </td>
             <td>
                 <div class="action-buttons">
-                    <button class="btn btn-sm btn-secondary" onclick="openTestDetail('${tc.id}')" title="View">
+                    <button class="btn btn-sm btn-secondary" onclick="openTestDetail('${tcId}')" title="View">
                         <i class="fas fa-eye"></i>
                     </button>
-                    <button class="btn btn-sm btn-success" onclick="quickUpdateStatus('${tc.id}', 'PASSED')" title="Mark Passed">
+                    <button class="btn btn-sm btn-success" onclick="quickUpdateStatus('${tcId}', 'PASSED')" title="Mark Passed">
                         <i class="fas fa-check"></i>
                     </button>
-                    <button class="btn btn-sm btn-danger" onclick="quickUpdateStatus('${tc.id}', 'FAILED')" title="Mark Failed">
+                    <button class="btn btn-sm btn-danger" onclick="quickUpdateStatus('${tcId}', 'FAILED')" title="Mark Failed">
                         <i class="fas fa-times"></i>
                     </button>
                 </div>
             </td>
         </tr>
-    `).join('');
+    `}).join('');
 }
 
 // Render link icon
@@ -211,10 +247,9 @@ function filterTestCases() {
 
 // Render documents
 function renderDocuments() {
-    const documents = getDocuments(currentUseCaseId);
     const grid = document.getElementById('documentsGrid');
 
-    if (documents.length === 0) {
+    if (currentDocuments.length === 0) {
         grid.innerHTML = `
             <div class="empty-state-small">
                 <i class="fas fa-folder-open"></i>
@@ -224,25 +259,30 @@ function renderDocuments() {
         return;
     }
 
-    grid.innerHTML = documents.map(doc => `
+    grid.innerHTML = currentDocuments.map(doc => {
+        const fileName = doc.name || doc.fileName || 'Document';
+        const fileType = doc.type || doc.fileType || 'OTHER';
+        const size = doc.size || '-';
+        const uploadedAt = doc.createdAt || doc.uploadedAt;
+        return `
         <div class="document-card">
-            <div class="document-icon">${getDocumentIcon(doc.fileType)}</div>
+            <div class="document-icon">${getDocumentIcon(fileType)}</div>
             <div class="document-info">
-                <div class="document-name">${doc.fileName}</div>
-                <div class="document-meta">${doc.size} | ${formatDate(doc.uploadedAt)}</div>
+                <div class="document-name">${fileName}</div>
+                <div class="document-meta">${size} | ${formatDate(uploadedAt)}</div>
             </div>
             <div class="document-actions">
                 <a href="${doc.url}" class="btn btn-sm btn-secondary" download title="Download">
                     <i class="fas fa-download"></i>
                 </a>
-                ${doc.fileType === 'TEST_VIDEO' ?
+                ${fileType === 'TEST_VIDEO' ?
                     `<button class="btn btn-sm btn-primary" onclick="playVideo('${doc.url}')" title="Play">
                         <i class="fas fa-play"></i>
                     </button>` : ''
                 }
             </div>
         </div>
-    `).join('');
+    `}).join('');
 }
 
 // Get document icon
@@ -258,22 +298,24 @@ function getDocumentIcon(fileType) {
 
 // Render approval history
 function renderApprovalHistory() {
-    const approvals = getApprovals(currentUseCaseId);
     const timeline = document.getElementById('approvalTimeline');
 
-    if (approvals.length === 0) {
+    if (currentApprovals.length === 0) {
         timeline.innerHTML = `<p class="text-muted">No approval history yet.</p>`;
         return;
     }
 
-    timeline.innerHTML = approvals.map(approval => `
-        <div class="timeline-item ${approval.action.toLowerCase()}">
+    timeline.innerHTML = currentApprovals.map(approval => {
+        const action = approval.type || approval.action || 'SUBMITTED';
+        const comment = approval.comment || approval.comments || '';
+        return `
+        <div class="timeline-item ${action.toLowerCase()}">
             <div class="timeline-date">${formatDateTime(approval.createdAt)}</div>
-            <div class="timeline-content">${formatApprovalAction(approval)}</div>
-            <div class="timeline-user">by ${approval.userName} (${approval.userRole})</div>
-            ${approval.comments ? `<div class="timeline-comment">"${approval.comments}"</div>` : ''}
+            <div class="timeline-content">${formatApprovalAction({...approval, action: action})}</div>
+            <div class="timeline-user">by ${approval.userName || 'Unknown'}</div>
+            ${comment ? `<div class="timeline-comment">"${comment}"</div>` : ''}
         </div>
-    `).join('');
+    `}).join('');
 }
 
 // Format approval action
@@ -355,28 +397,34 @@ function updateSubmitButton() {
 }
 
 // Submit for approval
-function submitForApproval() {
+async function submitForApproval() {
     const newStatus = 'PENDING_LEAD_APPROVAL';
 
-    // Add to approval history
-    if (!AppData.approvals[currentUseCaseId]) {
-        AppData.approvals[currentUseCaseId] = [];
-    }
-
-    AppData.approvals[currentUseCaseId].unshift({
-        id: 'APR' + Date.now(),
-        action: 'SUBMITTED',
-        fromStatus: currentUseCase.status,
-        toStatus: newStatus,
+    // Add to approval history in DynamoDB
+    const approvalResult = await ApprovalDB.addApproval(currentUseCaseId, {
+        type: 'SUBMITTED',
+        status: newStatus,
+        comment: '',
         userId: AppData.currentUser.id,
-        userName: AppData.currentUser.name,
-        userRole: AppData.currentUser.role,
-        comments: '',
-        createdAt: new Date().toISOString().replace('T', ' ').substring(0, 16)
+        userName: AppData.currentUser.name
     });
 
-    // Update status
+    if (!approvalResult.success) {
+        showNotification('Error saving approval: ' + approvalResult.error, 'danger');
+        return;
+    }
+
+    // Update local cache
+    currentApprovals.unshift(approvalResult.item);
+
+    // Update use case status
     currentUseCase.status = newStatus;
+    const updateResult = await UseCaseDB.updateUseCase(currentUseCase);
+
+    if (!updateResult.success) {
+        showNotification('Error updating status: ' + updateResult.error, 'danger');
+        return;
+    }
 
     // Refresh page
     initUseCasePage();
@@ -384,8 +432,7 @@ function submitForApproval() {
 }
 
 // Approve use case
-function approveUseCase() {
-    const role = AppData.currentUser.role;
+async function approveUseCase() {
     let newStatus;
 
     if (currentUseCase.status === 'PENDING_LEAD_APPROVAL') {
@@ -394,42 +441,69 @@ function approveUseCase() {
         newStatus = 'APPROVED';
     }
 
-    // Add to approval history
-    AppData.approvals[currentUseCaseId].unshift({
-        id: 'APR' + Date.now(),
-        action: 'APPROVED',
-        fromStatus: currentUseCase.status,
-        toStatus: newStatus,
+    // Add to approval history in DynamoDB
+    const approvalResult = await ApprovalDB.addApproval(currentUseCaseId, {
+        type: 'APPROVED',
+        status: newStatus,
+        comment: '',
         userId: AppData.currentUser.id,
-        userName: AppData.currentUser.name,
-        userRole: role,
-        comments: '',
-        createdAt: new Date().toISOString().replace('T', ' ').substring(0, 16)
+        userName: AppData.currentUser.name
     });
 
+    if (!approvalResult.success) {
+        showNotification('Error saving approval: ' + approvalResult.error, 'danger');
+        return;
+    }
+
+    // Update local cache
+    currentApprovals.unshift(approvalResult.item);
+
+    // Update use case status
     currentUseCase.status = newStatus;
+    const updateResult = await UseCaseDB.updateUseCase(currentUseCase);
+
+    if (!updateResult.success) {
+        showNotification('Error updating status: ' + updateResult.error, 'danger');
+        return;
+    }
+
     initUseCasePage();
     showNotification('Approved successfully!', 'success');
 }
 
 // Request changes
-function requestChanges() {
+async function requestChanges() {
     const comments = prompt('Enter your feedback for changes:');
     if (!comments) return;
 
-    AppData.approvals[currentUseCaseId].unshift({
-        id: 'APR' + Date.now(),
-        action: 'CHANGES_REQUESTED',
-        fromStatus: currentUseCase.status,
-        toStatus: 'CHANGES_REQUESTED',
+    const newStatus = 'CHANGES_REQUESTED';
+
+    // Add to approval history in DynamoDB
+    const approvalResult = await ApprovalDB.addApproval(currentUseCaseId, {
+        type: 'CHANGES_REQUESTED',
+        status: newStatus,
+        comment: comments,
         userId: AppData.currentUser.id,
-        userName: AppData.currentUser.name,
-        userRole: AppData.currentUser.role,
-        comments: comments,
-        createdAt: new Date().toISOString().replace('T', ' ').substring(0, 16)
+        userName: AppData.currentUser.name
     });
 
-    currentUseCase.status = 'CHANGES_REQUESTED';
+    if (!approvalResult.success) {
+        showNotification('Error saving approval: ' + approvalResult.error, 'danger');
+        return;
+    }
+
+    // Update local cache
+    currentApprovals.unshift(approvalResult.item);
+
+    // Update use case status
+    currentUseCase.status = newStatus;
+    const updateResult = await UseCaseDB.updateUseCase(currentUseCase);
+
+    if (!updateResult.success) {
+        showNotification('Error updating status: ' + updateResult.error, 'danger');
+        return;
+    }
+
     initUseCasePage();
     showNotification('Changes requested', 'warning');
 }
@@ -448,16 +522,14 @@ function closeModal(modalId) {
 }
 
 // Add test case
-function addTestCase(event) {
+async function addTestCase(event) {
     event.preventDefault();
 
     const testCase = {
-        id: `TC${currentUseCaseId.replace('UC', '')}-${String(getTestCases(currentUseCaseId).length + 1).padStart(3, '0')}`,
         name: document.getElementById('testCaseName').value,
         description: document.getElementById('testDescription').value,
         priority: document.getElementById('testPriority').value,
         status: document.getElementById('testStatus').value,
-        lastRun: document.getElementById('testStatus').value !== 'PENDING' ? new Date().toISOString().split('T')[0] : null,
         links: {
             testCaseDoc: document.getElementById('testCaseDocLink').value || null,
             testResult: document.getElementById('testResultLink').value || null,
@@ -465,10 +537,16 @@ function addTestCase(event) {
         }
     };
 
-    if (!AppData.testCases[currentUseCaseId]) {
-        AppData.testCases[currentUseCaseId] = [];
+    // Save to DynamoDB
+    const result = await TestCaseDB.addTestCase(currentUseCaseId, testCase);
+
+    if (!result.success) {
+        showNotification('Error adding test case: ' + result.error, 'danger');
+        return;
     }
-    AppData.testCases[currentUseCaseId].push(testCase);
+
+    // Update local cache
+    currentTestCases.push(result.item);
 
     closeModal('addTestCaseModal');
     document.getElementById('addTestCaseForm').reset();
@@ -478,42 +556,55 @@ function addTestCase(event) {
 }
 
 // Quick update test status
-function quickUpdateStatus(testCaseId, status) {
-    const testCases = AppData.testCases[currentUseCaseId];
-    const tc = testCases.find(t => t.id === testCaseId);
-    if (tc) {
-        tc.status = status;
-        tc.lastRun = new Date().toISOString().split('T')[0];
-        renderTestCases();
-        renderTestProgress();
-        showNotification(`Test case marked as ${status}`, status === 'PASSED' ? 'success' : 'danger');
+async function quickUpdateStatus(testCaseId, status) {
+    const tc = currentTestCases.find(t => (t.testCaseId || t.id) === testCaseId);
+    if (!tc) return;
+
+    // Update in DynamoDB
+    const result = await TestCaseDB.updateTestCase(currentUseCaseId, testCaseId, {
+        status: status,
+        lastRun: new Date().toISOString().split('T')[0]
+    });
+
+    if (!result.success) {
+        showNotification('Error updating test case: ' + result.error, 'danger');
+        return;
     }
+
+    // Update local cache
+    tc.status = status;
+    tc.lastRun = new Date().toISOString().split('T')[0];
+
+    renderTestCases();
+    renderTestProgress();
+    showNotification(`Test case marked as ${status}`, status === 'PASSED' ? 'success' : 'danger');
 }
 
 // Open test detail modal
 function openTestDetail(testCaseId) {
-    const testCases = AppData.testCases[currentUseCaseId];
-    const tc = testCases.find(t => t.id === testCaseId);
+    const tc = currentTestCases.find(t => (t.testCaseId || t.id) === testCaseId);
     if (!tc) return;
+
+    const links = tc.links || {};
 
     document.getElementById('testDetailTitle').textContent = tc.name;
     document.getElementById('testDetailStatus').textContent = tc.status;
     document.getElementById('testDetailStatus').className = `status-badge ${tc.status}`;
-    document.getElementById('testDetailPriority').textContent = tc.priority;
-    document.getElementById('testDetailLastRun').textContent = tc.lastRun ? formatDate(tc.lastRun) : 'Not run yet';
+    document.getElementById('testDetailPriority').textContent = tc.priority || 'MEDIUM';
+    document.getElementById('testDetailLastRun').textContent = tc.lastRun || tc.updatedAt ? formatDate(tc.lastRun || tc.updatedAt) : 'Not run yet';
     document.getElementById('testDetailDescription').textContent = tc.description || 'No description provided.';
 
     // Render links
     const linksList = document.getElementById('testDetailLinks');
     let linksHtml = '';
-    if (tc.links.testCaseDoc) {
-        linksHtml += `<li><a href="${tc.links.testCaseDoc}" target="_blank"><i class="fas fa-file-alt"></i> Test Case Document</a></li>`;
+    if (links.testCaseDoc) {
+        linksHtml += `<li><a href="${links.testCaseDoc}" target="_blank"><i class="fas fa-file-alt"></i> Test Case Document</a></li>`;
     }
-    if (tc.links.testResult) {
-        linksHtml += `<li><a href="${tc.links.testResult}" target="_blank"><i class="fas fa-chart-bar"></i> Test Results / Evidence</a></li>`;
+    if (links.testResult) {
+        linksHtml += `<li><a href="${links.testResult}" target="_blank"><i class="fas fa-chart-bar"></i> Test Results / Evidence</a></li>`;
     }
-    if (tc.links.jira) {
-        linksHtml += `<li><a href="${tc.links.jira}" target="_blank"><i class="fas fa-bug"></i> Jira Ticket</a></li>`;
+    if (links.jira) {
+        linksHtml += `<li><a href="${links.jira}" target="_blank"><i class="fas fa-bug"></i> Jira Ticket</a></li>`;
     }
     if (!linksHtml) {
         linksHtml = '<li class="text-muted">No links available</li>';
@@ -524,33 +615,29 @@ function openTestDetail(testCaseId) {
 }
 
 // Upload document
-function uploadDocument(event) {
+async function uploadDocument(event) {
     event.preventDefault();
 
     const docType = document.getElementById('docType').value;
     const fileInput = document.getElementById('docFile');
     const externalLink = document.getElementById('docLink').value;
 
-    let doc;
+    let docData;
     if (fileInput.files.length > 0) {
         const file = fileInput.files[0];
-        doc = {
-            id: 'DOC' + Date.now(),
-            fileName: file.name,
-            fileType: docType,
+        docData = {
+            name: file.name,
+            type: docType,
             size: formatFileSize(file.size),
             uploadedBy: AppData.currentUser.name,
-            uploadedAt: new Date().toISOString().split('T')[0],
             url: URL.createObjectURL(file) // In production, this would be S3 URL
         };
     } else if (externalLink) {
-        doc = {
-            id: 'DOC' + Date.now(),
-            fileName: 'External Link',
-            fileType: docType,
+        docData = {
+            name: 'External Link',
+            type: docType,
             size: '-',
             uploadedBy: AppData.currentUser.name,
-            uploadedAt: new Date().toISOString().split('T')[0],
             url: externalLink
         };
     } else {
@@ -558,10 +645,16 @@ function uploadDocument(event) {
         return;
     }
 
-    if (!AppData.documents[currentUseCaseId]) {
-        AppData.documents[currentUseCaseId] = [];
+    // Save to DynamoDB
+    const result = await DocumentDB.addDocument(currentUseCaseId, docData);
+
+    if (!result.success) {
+        showNotification('Error uploading document: ' + result.error, 'danger');
+        return;
     }
-    AppData.documents[currentUseCaseId].push(doc);
+
+    // Update local cache
+    currentDocuments.push(result.item);
 
     closeModal('uploadModal');
     document.getElementById('uploadForm').reset();
@@ -892,7 +985,7 @@ function escapeHtml(str) {
 }
 
 // Upload/Import test cases
-function uploadTestCases(event) {
+async function uploadTestCases(event) {
     event.preventDefault();
 
     if (parsedTestCases.length === 0) {
@@ -900,44 +993,49 @@ function uploadTestCases(event) {
         return;
     }
 
-    // Initialize test cases array for this use case if needed
-    if (!AppData.testCases[currentUseCaseId]) {
-        AppData.testCases[currentUseCaseId] = [];
-    }
+    // Show loading state
+    const importBtn = document.getElementById('importBtn');
+    importBtn.disabled = true;
+    importBtn.textContent = 'Importing...';
 
-    const existingCount = AppData.testCases[currentUseCaseId].length;
+    // Prepare test cases for batch add
+    const testCasesToAdd = parsedTestCases.map(tc => ({
+        name: tc.name,
+        description: tc.description,
+        priority: tc.priority,
+        status: tc.status,
+        category: 'Unit Test'
+    }));
 
-    // Add test cases
-    parsedTestCases.forEach((tc, idx) => {
-        const testCase = {
-            id: `TC${currentUseCaseId.replace('UC', '')}-${String(existingCount + idx + 1).padStart(3, '0')}`,
-            name: tc.name,
-            description: tc.description,
-            priority: tc.priority,
-            status: tc.status,
-            lastRun: tc.status !== 'PENDING' ? new Date().toISOString().split('T')[0] : null,
-            links: {
-                testCaseDoc: tc.testCaseDoc || null,
-                testResult: tc.testResult || null,
-                jira: tc.jira || null
-            }
-        };
+    // Add test cases to DynamoDB
+    const results = await TestCaseDB.batchAddTestCases(currentUseCaseId, testCasesToAdd);
 
-        AppData.testCases[currentUseCaseId].push(testCase);
+    // Count successes
+    const successCount = results.filter(r => r.success).length;
+    const failCount = results.length - successCount;
+
+    // Update local cache with successful additions
+    results.forEach(r => {
+        if (r.success) {
+            currentTestCases.push(r.item);
+        }
     });
-
-    const importedCount = parsedTestCases.length;
 
     // Clear and close modal
     parsedTestCases = [];
     closeModal('uploadTestCasesModal');
     document.getElementById('testCasesFile').value = '';
     document.getElementById('uploadPreview').style.display = 'none';
-    document.getElementById('importBtn').disabled = true;
+    importBtn.disabled = true;
+    importBtn.textContent = 'Import Test Cases';
 
     // Refresh views
     renderTestCases();
     renderTestProgress();
 
-    showNotification(`Successfully imported ${importedCount} test case(s)!`, 'success');
+    if (failCount > 0) {
+        showNotification(`Imported ${successCount} test case(s), ${failCount} failed`, 'warning');
+    } else {
+        showNotification(`Successfully imported ${successCount} test case(s)!`, 'success');
+    }
 }

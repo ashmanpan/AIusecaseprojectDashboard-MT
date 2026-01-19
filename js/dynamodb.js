@@ -411,10 +411,409 @@ const UseCaseDB = {
     }
 };
 
+/**
+ * Test Case Database Operations
+ * Table has single 'id' key - we use format: useCaseId#testCaseId
+ */
+const TestCaseDB = {
+    // Get all test cases for a use case
+    async getTestCases(useCaseId) {
+        return executeWithRetry(async () => {
+            const client = await getDocClient();
+            const params = {
+                TableName: DYNAMODB_CONFIG.tables.testCases,
+                FilterExpression: 'useCaseId = :ucId',
+                ExpressionAttributeValues: {
+                    ':ucId': useCaseId
+                }
+            };
+
+            const result = await client.scan(params).promise();
+            return result.Items || [];
+        }).catch(error => {
+            console.error('Error fetching test cases:', error);
+            return [];
+        });
+    },
+
+    // Add a test case
+    async addTestCase(useCaseId, testCase) {
+        const existingCases = await this.getTestCases(useCaseId);
+        const maxNum = existingCases.reduce((max, tc) => {
+            const num = parseInt(tc.testCaseId?.replace('TC', '') || '0');
+            return Math.max(max, num);
+        }, 0);
+        const testCaseId = 'TC' + String(maxNum + 1).padStart(3, '0');
+
+        const now = new Date().toISOString();
+        const item = {
+            id: `${useCaseId}#${testCaseId}`,
+            useCaseId: useCaseId,
+            testCaseId: testCaseId,
+            name: testCase.name,
+            description: testCase.description || '',
+            category: testCase.category || 'Unit Test',
+            status: testCase.status || 'NOT_STARTED',
+            priority: testCase.priority || 'MEDIUM',
+            assignee: testCase.assignee || '',
+            createdAt: now,
+            updatedAt: now
+        };
+
+        return executeWithRetry(async () => {
+            const client = await getDocClient();
+            const params = {
+                TableName: DYNAMODB_CONFIG.tables.testCases,
+                Item: item
+            };
+
+            await client.put(params).promise();
+            return { success: true, item: item };
+        }).catch(error => {
+            console.error('Error adding test case:', error);
+            return { success: false, error: error.message };
+        });
+    },
+
+    // Update a test case
+    async updateTestCase(useCaseId, testCaseId, updates) {
+        return executeWithRetry(async () => {
+            const client = await getDocClient();
+            const now = new Date().toISOString();
+
+            const updateExpressions = [];
+            const expressionAttributeNames = {};
+            const expressionAttributeValues = {
+                ':updatedAt': now
+            };
+
+            Object.keys(updates).forEach(key => {
+                if (key !== 'id' && key !== 'useCaseId' && key !== 'testCaseId') {
+                    updateExpressions.push(`#${key} = :${key}`);
+                    expressionAttributeNames[`#${key}`] = key;
+                    expressionAttributeValues[`:${key}`] = updates[key];
+                }
+            });
+
+            updateExpressions.push('#updatedAt = :updatedAt');
+            expressionAttributeNames['#updatedAt'] = 'updatedAt';
+
+            const params = {
+                TableName: DYNAMODB_CONFIG.tables.testCases,
+                Key: {
+                    id: `${useCaseId}#${testCaseId}`
+                },
+                UpdateExpression: 'SET ' + updateExpressions.join(', '),
+                ExpressionAttributeNames: expressionAttributeNames,
+                ExpressionAttributeValues: expressionAttributeValues,
+                ReturnValues: 'ALL_NEW'
+            };
+
+            const result = await client.update(params).promise();
+            return { success: true, item: result.Attributes };
+        }).catch(error => {
+            console.error('Error updating test case:', error);
+            return { success: false, error: error.message };
+        });
+    },
+
+    // Delete a test case
+    async deleteTestCase(useCaseId, testCaseId) {
+        return executeWithRetry(async () => {
+            const client = await getDocClient();
+            const params = {
+                TableName: DYNAMODB_CONFIG.tables.testCases,
+                Key: {
+                    id: `${useCaseId}#${testCaseId}`
+                }
+            };
+
+            await client.delete(params).promise();
+            return { success: true };
+        }).catch(error => {
+            console.error('Error deleting test case:', error);
+            return { success: false, error: error.message };
+        });
+    },
+
+    // Batch add test cases (for import)
+    async batchAddTestCases(useCaseId, testCases) {
+        const existingCases = await this.getTestCases(useCaseId);
+        let maxNum = existingCases.reduce((max, tc) => {
+            const num = parseInt(tc.testCaseId?.replace('TC', '') || '0');
+            return Math.max(max, num);
+        }, 0);
+
+        const now = new Date().toISOString();
+        const results = [];
+
+        for (const tc of testCases) {
+            maxNum++;
+            const testCaseId = 'TC' + String(maxNum).padStart(3, '0');
+            const item = {
+                id: `${useCaseId}#${testCaseId}`,
+                useCaseId: useCaseId,
+                testCaseId: testCaseId,
+                name: tc.name,
+                description: tc.description || '',
+                category: tc.category || 'Unit Test',
+                status: tc.status || 'NOT_STARTED',
+                priority: tc.priority || 'MEDIUM',
+                assignee: tc.assignee || '',
+                createdAt: now,
+                updatedAt: now
+            };
+
+            try {
+                const client = await getDocClient();
+                await client.put({
+                    TableName: DYNAMODB_CONFIG.tables.testCases,
+                    Item: item
+                }).promise();
+                results.push({ success: true, item: item });
+            } catch (error) {
+                results.push({ success: false, error: error.message });
+            }
+        }
+
+        return results;
+    }
+};
+
+/**
+ * Document Database Operations
+ * Table has single 'id' key - we use format: useCaseId#documentId
+ */
+const DocumentDB = {
+    // Get all documents for a use case
+    async getDocuments(useCaseId) {
+        return executeWithRetry(async () => {
+            const client = await getDocClient();
+            const params = {
+                TableName: DYNAMODB_CONFIG.tables.documents,
+                FilterExpression: 'useCaseId = :ucId',
+                ExpressionAttributeValues: {
+                    ':ucId': useCaseId
+                }
+            };
+
+            const result = await client.scan(params).promise();
+            return result.Items || [];
+        }).catch(error => {
+            console.error('Error fetching documents:', error);
+            return [];
+        });
+    },
+
+    // Add a document
+    async addDocument(useCaseId, document) {
+        const existingDocs = await this.getDocuments(useCaseId);
+        const maxNum = existingDocs.reduce((max, doc) => {
+            const num = parseInt(doc.documentId?.replace('DOC', '') || '0');
+            return Math.max(max, num);
+        }, 0);
+        const documentId = 'DOC' + String(maxNum + 1).padStart(3, '0');
+
+        const now = new Date().toISOString();
+        const item = {
+            id: `${useCaseId}#${documentId}`,
+            useCaseId: useCaseId,
+            documentId: documentId,
+            name: document.name,
+            type: document.type || 'GENERAL',
+            url: document.url || '',
+            size: document.size || '',
+            description: document.description || '',
+            uploadedBy: document.uploadedBy || '',
+            createdAt: now,
+            updatedAt: now
+        };
+
+        return executeWithRetry(async () => {
+            const client = await getDocClient();
+            const params = {
+                TableName: DYNAMODB_CONFIG.tables.documents,
+                Item: item
+            };
+
+            await client.put(params).promise();
+            return { success: true, item: item };
+        }).catch(error => {
+            console.error('Error adding document:', error);
+            return { success: false, error: error.message };
+        });
+    },
+
+    // Delete a document
+    async deleteDocument(useCaseId, documentId) {
+        return executeWithRetry(async () => {
+            const client = await getDocClient();
+            const params = {
+                TableName: DYNAMODB_CONFIG.tables.documents,
+                Key: {
+                    id: `${useCaseId}#${documentId}`
+                }
+            };
+
+            await client.delete(params).promise();
+            return { success: true };
+        }).catch(error => {
+            console.error('Error deleting document:', error);
+            return { success: false, error: error.message };
+        });
+    }
+};
+
+/**
+ * Approval Database Operations
+ * Table has single 'id' key - we use format: useCaseId#approvalId
+ */
+const ApprovalDB = {
+    // Get all approvals for a use case
+    async getApprovals(useCaseId) {
+        return executeWithRetry(async () => {
+            const client = await getDocClient();
+            const params = {
+                TableName: DYNAMODB_CONFIG.tables.approvals,
+                FilterExpression: 'useCaseId = :ucId',
+                ExpressionAttributeValues: {
+                    ':ucId': useCaseId
+                }
+            };
+
+            const result = await client.scan(params).promise();
+            // Sort by date descending (newest first)
+            return (result.Items || []).sort((a, b) =>
+                new Date(b.createdAt) - new Date(a.createdAt)
+            );
+        }).catch(error => {
+            console.error('Error fetching approvals:', error);
+            return [];
+        });
+    },
+
+    // Add an approval record
+    async addApproval(useCaseId, approval) {
+        const now = new Date().toISOString();
+        const approvalId = 'APR' + Date.now();
+
+        const item = {
+            id: `${useCaseId}#${approvalId}`,
+            useCaseId: useCaseId,
+            approvalId: approvalId,
+            type: approval.type, // 'SUBMITTED', 'APPROVED', 'REJECTED', 'CHANGES_REQUESTED'
+            status: approval.status,
+            comment: approval.comment || '',
+            userId: approval.userId,
+            userName: approval.userName,
+            createdAt: now
+        };
+
+        return executeWithRetry(async () => {
+            const client = await getDocClient();
+            const params = {
+                TableName: DYNAMODB_CONFIG.tables.approvals,
+                Item: item
+            };
+
+            await client.put(params).promise();
+            return { success: true, item: item };
+        }).catch(error => {
+            console.error('Error adding approval:', error);
+            return { success: false, error: error.message };
+        });
+    }
+};
+
+/**
+ * Activity Database Operations
+ * Table has single 'id' key - we use format: tenantId#timestamp
+ */
+const ActivityDB = {
+    // Get recent activity for a tenant
+    async getActivity(tenantId, limit = 20) {
+        return executeWithRetry(async () => {
+            const client = await getDocClient();
+            const params = {
+                TableName: DYNAMODB_CONFIG.tables.activity,
+                FilterExpression: 'tenantId = :tid',
+                ExpressionAttributeValues: {
+                    ':tid': tenantId
+                }
+            };
+
+            const result = await client.scan(params).promise();
+            // Sort by createdAt descending and limit
+            return (result.Items || [])
+                .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+                .slice(0, limit);
+        }).catch(error => {
+            console.error('Error fetching activity:', error);
+            return [];
+        });
+    },
+
+    // Add activity record
+    async addActivity(tenantId, activity) {
+        const now = new Date().toISOString();
+        const activityId = 'ACT' + Date.now();
+
+        const item = {
+            id: `${tenantId}#${activityId}`,
+            tenantId: tenantId,
+            activityId: activityId,
+            text: activity.text,
+            icon: activity.icon || 'fa-circle-info',
+            iconClass: activity.iconClass || '',
+            useCaseId: activity.useCaseId || '',
+            userId: activity.userId || '',
+            createdAt: now
+        };
+
+        return executeWithRetry(async () => {
+            const client = await getDocClient();
+            const params = {
+                TableName: DYNAMODB_CONFIG.tables.activity,
+                Item: item
+            };
+
+            await client.put(params).promise();
+            return { success: true, item: item };
+        }).catch(error => {
+            console.error('Error adding activity:', error);
+            return { success: false, error: error.message };
+        });
+    },
+
+    // Get all activity (for admin)
+    async getAllActivity(limit = 50) {
+        return executeWithRetry(async () => {
+            const client = await getDocClient();
+            const params = {
+                TableName: DYNAMODB_CONFIG.tables.activity,
+                Limit: limit
+            };
+
+            const result = await client.scan(params).promise();
+            // Sort by createdAt descending
+            return (result.Items || []).sort((a, b) =>
+                new Date(b.createdAt) - new Date(a.createdAt)
+            );
+        }).catch(error => {
+            console.error('Error fetching all activity:', error);
+            return [];
+        });
+    }
+};
+
 // Export
 window.InfraDB = InfraDB;
 window.SalesDB = SalesDB;
 window.UseCaseDB = UseCaseDB;
+window.TestCaseDB = TestCaseDB;
+window.DocumentDB = DocumentDB;
+window.ApprovalDB = ApprovalDB;
+window.ActivityDB = ActivityDB;
 window.SALES_STAGES = SALES_STAGES;
 window.getDocClient = getDocClient;
 window.resetDocClient = resetDocClient;
