@@ -93,6 +93,13 @@ function renderUseCasesTable(filter = '', statusFilter = '', stageFilter = '') {
 
     let useCases = AppData.useCases.filter(uc => uc.tenantId === AppData.currentTenant);
 
+    // Sort by use case ID number (UC001, UC002, etc.)
+    useCases.sort((a, b) => {
+        const numA = parseInt(a.id.match(/UC(\d+)/)?.[1] || '0');
+        const numB = parseInt(b.id.match(/UC(\d+)/)?.[1] || '0');
+        return numA - numB;
+    });
+
     // Apply search filter
     if (filter) {
         const searchLower = filter.toLowerCase();
@@ -112,9 +119,13 @@ function renderUseCasesTable(filter = '', statusFilter = '', stageFilter = '') {
         useCases = useCases.filter(uc => uc.lifecycleStage.includes(stageFilter));
     }
 
-    tbody.innerHTML = useCases.map((uc, index) => `
+    tbody.innerHTML = useCases.map((uc, index) => {
+        // Extract UC number from ID (e.g., xl-UC001 -> UC-001)
+        const ucNum = uc.id.match(/UC(\d+)/)?.[1] || (index + 1);
+        const ucDisplay = 'UC-' + ucNum.toString().padStart(3, '0');
+        return `
         <tr>
-            <td>${index + 1}</td>
+            <td><code>${ucDisplay}</code></td>
             <td>
                 <a href="usecase.html?id=${uc.id}" class="use-case-link">
                     ${formatDomainIcon(uc.domain)} <strong>${uc.name}</strong>
@@ -138,7 +149,7 @@ function renderUseCasesTable(filter = '', statusFilter = '', stageFilter = '') {
                 </div>
             </td>
         </tr>
-    `).join('');
+    `}).join('');
 }
 
 // Format deployed in lab status
