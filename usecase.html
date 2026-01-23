@@ -128,6 +128,9 @@
                         <i class="fas fa-upload"></i> Import
                     </button>
                     <button class="btn btn-primary" onclick="openAddTestCaseModal()">+ Add Test Case</button>
+                    <button class="btn btn-danger" onclick="deleteAllTestCases()" title="Delete All Test Cases">
+                        <i class="fas fa-trash-alt"></i> Delete All
+                    </button>
                 </div>
             </div>
             <table class="data-table" id="testCasesTable">
@@ -438,6 +441,59 @@
                 </div>
                 <div class="form-actions">
                     <button type="button" class="btn btn-secondary" onclick="closeModal('editUseCaseModal')">Cancel</button>
+                    <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Edit Test Case Modal -->
+    <div id="editTestCaseModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('editTestCaseModal')">&times;</span>
+            <h2><i class="fas fa-edit"></i> Edit Test Case</h2>
+            <form id="editTestCaseForm" onsubmit="saveEditedTestCase(event)">
+                <div class="form-group">
+                    <label for="editTestCaseName">Test Case Name *</label>
+                    <input type="text" id="editTestCaseName" required>
+                </div>
+                <div class="form-group">
+                    <label for="editTestDescription">Description</label>
+                    <textarea id="editTestDescription" rows="2"></textarea>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="editTestPriority">Priority</label>
+                        <select id="editTestPriority">
+                            <option value="HIGH">High</option>
+                            <option value="MEDIUM">Medium</option>
+                            <option value="LOW">Low</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="editTestStatus">Status</label>
+                        <select id="editTestStatus">
+                            <option value="PENDING">Pending</option>
+                            <option value="PASSED">Passed</option>
+                            <option value="FAILED">Failed</option>
+                            <option value="BLOCKED">Blocked</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="editTestCaseDocLink">Test Case Document Link</label>
+                    <input type="url" id="editTestCaseDocLink" placeholder="https://...">
+                </div>
+                <div class="form-group">
+                    <label for="editTestResultLink">Test Result/Evidence Link</label>
+                    <input type="url" id="editTestResultLink" placeholder="https://...">
+                </div>
+                <div class="form-group">
+                    <label for="editJiraLink">Jira/Issue Tracker Link</label>
+                    <input type="url" id="editJiraLink" placeholder="https://jira.example.com/...">
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('editTestCaseModal')">Cancel</button>
                     <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Save Changes</button>
                 </div>
             </form>

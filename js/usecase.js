@@ -238,14 +238,17 @@ function renderTestCases(statusFilter = '') {
             </td>
             <td>
                 <div class="action-buttons">
-                    <button class="btn btn-sm btn-secondary" onclick="openTestDetail('${tcId}')" title="View">
-                        <i class="fas fa-eye"></i>
-                    </button>
                     <button class="btn btn-sm btn-success" onclick="quickUpdateStatus('${tcId}', 'PASSED')" title="Mark Passed">
                         <i class="fas fa-check"></i>
                     </button>
                     <button class="btn btn-sm btn-danger" onclick="quickUpdateStatus('${tcId}', 'FAILED')" title="Mark Failed">
                         <i class="fas fa-times"></i>
+                    </button>
+                    <button class="btn btn-sm btn-secondary" onclick="openEditTestCaseModal('${tcId}')" title="Edit">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button class="btn btn-sm btn-danger" onclick="deleteTestCase('${tcId}')" title="Delete">
+                        <i class="fas fa-trash"></i>
                     </button>
                 </div>
             </td>
@@ -665,6 +668,132 @@ function openTestDetail(testCaseId) {
     linksList.innerHTML = linksHtml;
 
     document.getElementById('testDetailModal').classList.add('active');
+}
+
+// Store current test case being edited
+let editingTestCaseId = null;
+
+// Open edit test case modal
+function openEditTestCaseModal(testCaseId) {
+    const tc = currentTestCases.find(t => (t.testCaseId || t.id) === testCaseId);
+    if (!tc) return;
+
+    editingTestCaseId = testCaseId;
+    const links = tc.links || {};
+
+    document.getElementById('editTestCaseName').value = tc.name || '';
+    document.getElementById('editTestDescription').value = tc.description || '';
+    document.getElementById('editTestPriority').value = tc.priority || 'MEDIUM';
+    document.getElementById('editTestStatus').value = tc.status || 'PENDING';
+    document.getElementById('editTestCaseDocLink').value = links.testCaseDoc || '';
+    document.getElementById('editTestResultLink').value = links.testResult || '';
+    document.getElementById('editJiraLink').value = links.jira || '';
+
+    document.getElementById('editTestCaseModal').classList.add('active');
+}
+
+// Save edited test case
+async function saveEditedTestCase(event) {
+    event.preventDefault();
+
+    if (!editingTestCaseId) return;
+
+    const updates = {
+        name: document.getElementById('editTestCaseName').value,
+        description: document.getElementById('editTestDescription').value,
+        priority: document.getElementById('editTestPriority').value,
+        status: document.getElementById('editTestStatus').value,
+        links: {
+            testCaseDoc: document.getElementById('editTestCaseDocLink').value || null,
+            testResult: document.getElementById('editTestResultLink').value || null,
+            jira: document.getElementById('editJiraLink').value || null
+        },
+        updatedAt: new Date().toISOString()
+    };
+
+    // Update in DynamoDB
+    const result = await TestCaseDB.updateTestCase(currentUseCaseId, editingTestCaseId, updates);
+
+    if (!result.success) {
+        showNotification('Error updating test case: ' + result.error, 'danger');
+        return;
+    }
+
+    // Update local cache
+    const tc = currentTestCases.find(t => (t.testCaseId || t.id) === editingTestCaseId);
+    if (tc) {
+        Object.assign(tc, updates);
+    }
+
+    // Sync test progress
+    await updateUseCaseTestProgress();
+
+    closeModal('editTestCaseModal');
+    editingTestCaseId = null;
+    renderTestCases();
+    renderTestProgress();
+    showNotification('Test case updated!', 'success');
+}
+
+// Delete single test case
+async function deleteTestCase(testCaseId) {
+    const tc = currentTestCases.find(t => (t.testCaseId || t.id) === testCaseId);
+    if (!tc) return;
+
+    if (!confirm(`Delete test case "${tc.name}"?\n\nThis cannot be undone.`)) {
+        return;
+    }
+
+    const result = await TestCaseDB.deleteTestCase(currentUseCaseId, testCaseId);
+
+    if (!result.success) {
+        showNotification('Error deleting test case: ' + result.error, 'danger');
+        return;
+    }
+
+    // Remove from local cache
+    const index = currentTestCases.findIndex(t => (t.testCaseId || t.id) === testCaseId);
+    if (index !== -1) {
+        currentTestCases.splice(index, 1);
+    }
+
+    // Sync test progress
+    await updateUseCaseTestProgress();
+
+    renderTestCases();
+    renderTestProgress();
+    showNotification('Test case deleted!', 'success');
+}
+
+// Delete all test cases for current use case
+async function deleteAllTestCases() {
+    if (currentTestCases.length === 0) {
+        showNotification('No test cases to delete', 'warning');
+        return;
+    }
+
+    if (!confirm(`Delete ALL ${currentTestCases.length} test cases for "${currentUseCase.name}"?\n\nThis cannot be undone.`)) {
+        return;
+    }
+
+    showNotification('Deleting test cases...', 'info');
+
+    let deleted = 0;
+    for (const tc of [...currentTestCases]) {
+        const tcId = tc.testCaseId || tc.id;
+        const result = await TestCaseDB.deleteTestCase(currentUseCaseId, tcId);
+        if (result.success) deleted++;
+    }
+
+    // Clear local cache
+    currentTestCases = [];
+
+    // Sync test progress
+    await updateUseCaseTestProgress();
+
+    renderTestCases();
+    renderTestProgress();
+    showNotification(`Deleted ${deleted} test case(s)!`, 'success');
 }
 
 // Upload document
