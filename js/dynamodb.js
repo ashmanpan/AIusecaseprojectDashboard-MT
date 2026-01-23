@@ -560,6 +560,7 @@ const TestCaseDB = {
                 status: tc.status || 'NOT_STARTED',
                 priority: tc.priority || 'MEDIUM',
                 assignee: tc.assignee || '',
+                links: tc.links || {},
                 createdAt: now,
                 updatedAt: now
             };

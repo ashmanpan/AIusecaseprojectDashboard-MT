@@ -1,0 +1,156 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Lambda + API Gateway for Test Case Analysis using Bedrock Claude Opus 4.5'
+
+Parameters:
+  Environment:
+    Type: String
+    Default: dev
+    AllowedValues:
+      - dev
+      - prod
+    Description: Deployment environment
+
+Resources:
+  # IAM Role for Lambda
+  AnalyzeTestCasesLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub 'analyze-testcases-lambda-role-${Environment}'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: BedrockInvokePolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - bedrock:InvokeModel
+                Resource:
+                  - !Sub 'arn:aws:bedrock:${AWS::Region}::foundation-model/anthropic.claude-opus-4-20250514'
+                  - !Sub 'arn:aws:bedrock:${AWS::Region}::foundation-model/anthropic.claude-sonnet-4-20250514'
+
+  # Lambda Function
+  AnalyzeTestCasesFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub 'analyze-testcases-${Environment}'
+      Description: Analyze test cases Excel using Bedrock Claude Opus 4.5
+      Runtime: nodejs18.x
+      Handler: index.handler
+      Role: !GetAtt AnalyzeTestCasesLambdaRole.Arn
+      Timeout: 60
+      MemorySize: 256
+      Environment:
+        Variables:
+          ENVIRONMENT: !Ref Environment
+      Code:
+        ZipFile: |
+          // Placeholder - deploy actual code from lambda/analyze-testcases/
+          exports.handler = async (event) => {
+            return { statusCode: 200, body: 'Deploy the actual Lambda code' };
+          };
+
+  # API Gateway REST API
+  AnalyzeTestCasesApi:
+    Type: AWS::ApiGateway::RestApi
+    Properties:
+      Name: !Sub 'analyze-testcases-api-${Environment}'
+      Description: API for test case analysis
+      EndpointConfiguration:
+        Types:
+          - REGIONAL
+
+  # API Gateway Resource
+  AnalyzeResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref AnalyzeTestCasesApi
+      ParentId: !GetAtt AnalyzeTestCasesApi.RootResourceId
+      PathPart: analyze
+
+  # API Gateway Method - POST
+  AnalyzeMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref AnalyzeTestCasesApi
+      ResourceId: !Ref AnalyzeResource
+      HttpMethod: POST
+      AuthorizationType: NONE
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${AnalyzeTestCasesFunction.Arn}/invocations'
+
+  # API Gateway Method - OPTIONS (CORS)
+  AnalyzeOptionsMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref AnalyzeTestCasesApi
+      ResourceId: !Ref AnalyzeResource
+      HttpMethod: OPTIONS
+      AuthorizationType: NONE
+      Integration:
+        Type: MOCK
+        IntegrationResponses:
+          - StatusCode: 200
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,Authorization'"
+              method.response.header.Access-Control-Allow-Methods: "'POST,OPTIONS'"
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+            ResponseTemplates:
+              application/json: ''
+        RequestTemplates:
+          application/json: '{"statusCode": 200}'
+      MethodResponses:
+        - StatusCode: 200
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Headers: true
+            method.response.header.Access-Control-Allow-Methods: true
+            method.response.header.Access-Control-Allow-Origin: true
+
+  # Lambda Permission for API Gateway
+  LambdaApiGatewayPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref AnalyzeTestCasesFunction
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${AnalyzeTestCasesApi}/*'
+
+  # API Gateway Deployment
+  ApiDeployment:
+    Type: AWS::ApiGateway::Deployment
+    DependsOn:
+      - AnalyzeMethod
+      - AnalyzeOptionsMethod
+    Properties:
+      RestApiId: !Ref AnalyzeTestCasesApi
+
+  # API Gateway Stage
+  ApiStage:
+    Type: AWS::ApiGateway::Stage
+    Properties:
+      RestApiId: !Ref AnalyzeTestCasesApi
+      DeploymentId: !Ref ApiDeployment
+      StageName: !Ref Environment
+
+Outputs:
+  ApiEndpoint:
+    Description: API Gateway endpoint URL
+    Value: !Sub 'https://${AnalyzeTestCasesApi}.execute-api.${AWS::Region}.amazonaws.com/${Environment}/analyze'
+    Export:
+      Name: !Sub 'AnalyzeTestCasesApiEndpoint-${Environment}'
+
+  LambdaFunctionArn:
+    Description: Lambda function ARN
+    Value: !GetAtt AnalyzeTestCasesFunction.Arn
+    Export:
+      Name: !Sub 'AnalyzeTestCasesLambdaArn-${Environment}'

@@ -1,0 +1,9 @@
+{
+  "name": "analyze-testcases-lambda",
+  "version": "1.0.0",
+  "description": "Lambda function to analyze test cases Excel using Bedrock Claude",
+  "main": "index.js",
+  "dependencies": {
+    "@aws-sdk/client-bedrock-runtime": "^3.500.0"
+  }
+}

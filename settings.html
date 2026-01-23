@@ -181,6 +181,23 @@
     <script src="js/data.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
+            // Update user name and role from authenticated user
+            const userNameEl = document.getElementById('userName');
+            if (userNameEl && AppData.currentUser) {
+                userNameEl.textContent = AppData.currentUser.name;
+            }
+            const roleBadgeEl = document.getElementById('userRole');
+            if (roleBadgeEl && AppData.currentUser) {
+                const roleMap = {
+                    'ADMIN': 'Admin',
+                    'TEAM_LEAD': 'Team Lead',
+                    'TEAM_MEMBER': 'Team Member',
+                    'CUSTOMER_INCHARGE': 'Customer',
+                    'VIEWER': 'Viewer'
+                };
+                roleBadgeEl.textContent = roleMap[AppData.currentUser.role] || AppData.currentUser.role;
+            }
+
             renderLifecycleStages();
             renderDeploymentLocations();
             renderTestingTeams();

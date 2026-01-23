@@ -65,6 +65,16 @@ async function loadUseCaseData() {
 }
 
 function initUseCasePage() {
+    // Update user name and role in header from authenticated user
+    const userNameEl = document.getElementById('userName');
+    if (userNameEl && AppData.currentUser) {
+        userNameEl.textContent = AppData.currentUser.name;
+    }
+    const roleBadgeEl = document.getElementById('userRole');
+    if (roleBadgeEl && AppData.currentUser) {
+        roleBadgeEl.textContent = formatRole(AppData.currentUser.role);
+    }
+
     renderUseCaseDetails();
     renderTestProgress();
     renderTestCases();
@@ -72,6 +82,18 @@ function initUseCasePage() {
     renderApprovalHistory();
     renderVersionHistory();
     updateSubmitButton();
+}
+
+// Format role for display
+function formatRole(role) {
+    const roleMap = {
+        'ADMIN': 'Admin',
+        'TEAM_LEAD': 'Team Lead',
+        'TEAM_MEMBER': 'Team Member',
+        'CUSTOMER_INCHARGE': 'Customer',
+        'VIEWER': 'Viewer'
+    };
+    return roleMap[role] || role;
 }
 
 // Format domain icon
@@ -548,11 +570,39 @@ async function addTestCase(event) {
     // Update local cache
     currentTestCases.push(result.item);
 
+    // Sync test progress to use case
+    await updateUseCaseTestProgress();
+
     closeModal('addTestCaseModal');
     document.getElementById('addTestCaseForm').reset();
     renderTestCases();
     renderTestProgress();
     showNotification('Test case added!', 'success');
+}
+
+// Update use case's unitTestProgress based on actual test cases
+async function updateUseCaseTestProgress() {
+    const total = currentTestCases.length;
+    const completed = currentTestCases.filter(tc => tc.status === 'PASSED').length;
+
+    // Update use case object
+    currentUseCase.unitTestProgress = { completed, total };
+
+    // Update in DynamoDB
+    const result = await UseCaseDB.updateUseCase(currentUseCase);
+
+    if (!result.success) {
+        console.error('Failed to update use case test progress:', result.error);
+        return;
+    }
+
+    // Update local AppData cache
+    const index = AppData.useCases.findIndex(uc => uc.id === currentUseCaseId);
+    if (index !== -1) {
+        AppData.useCases[index].unitTestProgress = { completed, total };
+    }
+
+    console.log(`Updated test progress: ${completed}/${total}`);
 }
 
 // Quick update test status
@@ -574,6 +624,9 @@ async function quickUpdateStatus(testCaseId, status) {
     // Update local cache
     tc.status = status;
     tc.lastRun = new Date().toISOString().split('T')[0];
+
+    // Sync test progress to use case (for dashboard)
+    await updateUseCaseTestProgress();
 
     renderTestCases();
     renderTestProgress();
@@ -839,92 +892,151 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
-function handleTestCasesFileSelect(event) {
+async function handleTestCasesFileSelect(event) {
     const file = event.target.files[0];
+    const aiFeedbackDiv = document.getElementById('aiFeedback');
+    const previewDiv = document.getElementById('uploadPreview');
+    const importBtn = document.getElementById('importBtn');
+
     if (!file) {
-        document.getElementById('uploadPreview').style.display = 'none';
-        document.getElementById('importBtn').disabled = true;
+        if (aiFeedbackDiv) aiFeedbackDiv.style.display = 'none';
+        previewDiv.style.display = 'none';
+        importBtn.disabled = true;
         return;
     }
 
+    // Show loading state
+    if (aiFeedbackDiv) {
+        aiFeedbackDiv.style.display = 'block';
+        aiFeedbackDiv.innerHTML = '<div class="ai-analyzing"><i class="fas fa-robot fa-spin"></i> AI is analyzing your file...</div>';
+    }
+    importBtn.disabled = true;
+
     const reader = new FileReader();
-    reader.onload = function(e) {
+    reader.onload = async function(e) {
         try {
             const data = new Uint8Array(e.target.result);
             const workbook = XLSX.read(data, { type: 'array' });
 
-            // Get first sheet (Test Cases)
+            // Get first sheet
             const sheetName = workbook.SheetNames[0];
             const worksheet = workbook.Sheets[sheetName];
 
-            // Convert to JSON
+            // Convert to JSON (with headers)
             const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
 
             if (jsonData.length < 2) {
                 showNotification('Excel file appears to be empty or only has headers', 'warning');
+                if (aiFeedbackDiv) aiFeedbackDiv.style.display = 'none';
                 return;
             }
 
-            // Get headers (first row)
+            // Get headers and rows
             const headers = jsonData[0];
+            const rows = jsonData.slice(1);
 
-            // Find column indices
-            const colMap = {
-                name: headers.findIndex(h => h && h.toString().toLowerCase().includes('test case name')),
-                description: headers.findIndex(h => h && h.toString().toLowerCase().includes('description')),
-                priority: headers.findIndex(h => h && h.toString().toLowerCase().includes('priority')),
-                status: headers.findIndex(h => h && h.toString().toLowerCase().includes('status')),
-                testCaseDoc: headers.findIndex(h => h && h.toString().toLowerCase().includes('test case doc')),
-                testResult: headers.findIndex(h => h && h.toString().toLowerCase().includes('test result')),
-                jira: headers.findIndex(h => h && h.toString().toLowerCase().includes('jira'))
-            };
-
-            // Check mandatory column
-            if (colMap.name === -1) {
-                showNotification('Missing mandatory column: Test Case Name', 'danger');
-                return;
+            // Use AI Analyzer to map columns intelligently
+            let analysisResult;
+            if (window.AIAnalyzer) {
+                analysisResult = await AIAnalyzer.analyzeTestCases(headers, rows, sheetName);
+            } else {
+                // Fallback to local analysis
+                analysisResult = localFallbackAnalysis(headers, rows);
             }
 
-            // Parse data rows (skip header)
-            parsedTestCases = [];
-            for (let i = 1; i < jsonData.length; i++) {
-                const row = jsonData[i];
-
-                // Skip empty rows
-                if (!row || !row[colMap.name]) continue;
-
-                const testCase = {
-                    name: row[colMap.name]?.toString().trim() || '',
-                    description: colMap.description !== -1 ? (row[colMap.description]?.toString().trim() || '') : '',
-                    priority: colMap.priority !== -1 ? normalizeValue(row[colMap.priority], ['HIGH', 'MEDIUM', 'LOW'], 'MEDIUM') : 'MEDIUM',
-                    status: colMap.status !== -1 ? normalizeValue(row[colMap.status], ['PENDING', 'PASSED', 'FAILED', 'BLOCKED'], 'PENDING') : 'PENDING',
-                    testCaseDoc: colMap.testCaseDoc !== -1 ? (row[colMap.testCaseDoc]?.toString().trim() || '') : '',
-                    testResult: colMap.testResult !== -1 ? (row[colMap.testResult]?.toString().trim() || '') : '',
-                    jira: colMap.jira !== -1 ? (row[colMap.jira]?.toString().trim() || '') : ''
-                };
-
-                if (testCase.name) {
-                    parsedTestCases.push(testCase);
-                }
+            // Show AI feedback
+            if (aiFeedbackDiv && analysisResult.analysis) {
+                aiFeedbackDiv.innerHTML = AIAnalyzer.formatFeedbackHtml(analysisResult.analysis);
+                aiFeedbackDiv.style.display = 'block';
             }
 
-            // Show preview
-            if (parsedTestCases.length > 0) {
+            // Store mapped test cases
+            if (analysisResult.mappedData && analysisResult.mappedData.length > 0) {
+                parsedTestCases = analysisResult.mappedData.map(tc => ({
+                    name: tc.name,
+                    description: tc.description || '',
+                    priority: tc.priority || 'MEDIUM',
+                    status: tc.status || 'PENDING',
+                    testCaseDoc: tc.testCaseDocUrl || '',
+                    testResult: tc.testResultUrl || '',
+                    jira: tc.jiraUrl || ''
+                }));
+
                 showPreview(parsedTestCases);
-                document.getElementById('importBtn').disabled = false;
+                importBtn.disabled = false;
             } else {
                 showNotification('No valid test cases found in the file', 'warning');
-                document.getElementById('uploadPreview').style.display = 'none';
-                document.getElementById('importBtn').disabled = true;
+                previewDiv.style.display = 'none';
+                importBtn.disabled = true;
             }
 
         } catch (error) {
             console.error('Error parsing Excel file:', error);
             showNotification('Error parsing Excel file. Please check the format.', 'danger');
+            if (aiFeedbackDiv) aiFeedbackDiv.style.display = 'none';
         }
     };
 
     reader.readAsArrayBuffer(file);
+}
+
+// Local fallback analysis if AI is not available
+function localFallbackAnalysis(headers, rows) {
+    if (window.AIAnalyzer) {
+        return AIAnalyzer.localAnalysis(headers, rows);
+    }
+
+    // Basic fallback
+    const mappedData = [];
+    const colMap = {
+        name: headers.findIndex(h => h && h.toString().toLowerCase().includes('test case name') || h.toString().toLowerCase().includes('title')),
+        description: headers.findIndex(h => h && (h.toString().toLowerCase().includes('description') || h.toString().toLowerCase().includes('trigger') || h.toString().toLowerCase().includes('expected'))),
+        priority: headers.findIndex(h => h && h.toString().toLowerCase().includes('priority')),
+        status: headers.findIndex(h => h && h.toString().toLowerCase().includes('status'))
+    };
+
+    // Check for Pass/Fail columns
+    const passCol = headers.findIndex(h => h && h.toString().toLowerCase() === 'pass');
+    const failCol = headers.findIndex(h => h && h.toString().toLowerCase() === 'fail' || h.toString().toLowerCase() === 'failed');
+
+    for (const row of rows) {
+        if (!row || row.every(c => !c)) continue;
+
+        const nameIdx = colMap.name !== -1 ? colMap.name : 2; // Default to column 2 (Title in your format)
+        const name = row[nameIdx]?.toString().trim();
+
+        if (!name) continue;
+
+        let status = 'PENDING';
+        if (passCol !== -1 && row[passCol]) {
+            status = 'PASSED';
+        } else if (failCol !== -1 && row[failCol]) {
+            status = 'FAILED';
+        }
+
+        mappedData.push({
+            name: name,
+            description: colMap.description !== -1 ? (row[colMap.description]?.toString().trim() || '') : '',
+            priority: 'MEDIUM',
+            status: status,
+            testCaseDocUrl: '',
+            testResultUrl: '',
+            jiraUrl: ''
+        });
+    }
+
+    return {
+        success: true,
+        analysis: {
+            columnMapping: colMap,
+            feedback: [`Found ${mappedData.length} test cases using local analysis.`],
+            warnings: ['AI analysis unavailable - using basic column matching.'],
+            validRowCount: mappedData.length,
+            skippedRows: rows.length - mappedData.length,
+            confidence: 'LOW'
+        },
+        mappedData
+    };
 }
 
 // Normalize values to allowed options
@@ -1004,7 +1116,12 @@ async function uploadTestCases(event) {
         description: tc.description,
         priority: tc.priority,
         status: tc.status,
-        category: 'Unit Test'
+        category: 'Unit Test',
+        links: {
+            testCaseDoc: tc.testCaseDoc || null,
+            testResult: tc.testResult || null,
+            jira: tc.jira || null
+        }
     }));
 
     // Add test cases to DynamoDB
@@ -1021,11 +1138,16 @@ async function uploadTestCases(event) {
         }
     });
 
+    // Update use case's unitTestProgress in DynamoDB
+    await updateUseCaseTestProgress();
+
     // Clear and close modal
     parsedTestCases = [];
     closeModal('uploadTestCasesModal');
     document.getElementById('testCasesFile').value = '';
     document.getElementById('uploadPreview').style.display = 'none';
+    const aiFeedbackDiv = document.getElementById('aiFeedback');
+    if (aiFeedbackDiv) aiFeedbackDiv.style.display = 'none';
     importBtn.disabled = true;
     importBtn.textContent = 'Import Test Cases';
 

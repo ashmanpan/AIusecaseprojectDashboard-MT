@@ -164,6 +164,53 @@
         if (!Auth.isLoggedIn()) {
             window.location.href = 'login.html';
         }
+
+        // Sync all use case test counts from DynamoDB
+        async function syncAllUseCaseTestCounts() {
+            console.log('=== Syncing Test Case Counts ===\n');
+            const statusDiv = document.createElement('div');
+            statusDiv.id = 'syncStatus';
+            statusDiv.style.cssText = 'position:fixed;top:80px;right:20px;background:#1e293b;color:#fff;padding:1rem;border-radius:8px;z-index:9999;min-width:300px;';
+            statusDiv.innerHTML = '<i class="fas fa-sync fa-spin"></i> Syncing test case counts...';
+            document.body.appendChild(statusDiv);
+
+            try {
+                const useCases = await UseCaseDB.getAllUseCases();
+                let updated = 0, errors = 0;
+
+                for (const useCase of useCases) {
+                    try {
+                        const testCases = await TestCaseDB.getTestCases(useCase.id);
+                        const total = testCases.length;
+                        const completed = testCases.filter(tc => tc.status === 'PASSED').length;
+                        const oldProgress = useCase.unitTestProgress || { completed: 0, total: 0 };
+
+                        if (oldProgress.total !== total || oldProgress.completed !== completed) {
+                            useCase.unitTestProgress = { completed, total };
+                            const result = await UseCaseDB.updateUseCase(useCase);
+                            if (result.success) {
+                                console.log(`✓ ${useCase.id}: ${oldProgress.total} → ${total}`);
+                                updated++;
+                            } else { errors++; }
+                        }
+                    } catch (err) { errors++; }
+                }
+
+                statusDiv.innerHTML = `<i class="fas fa-check-circle"></i> Sync complete! Updated: ${updated}, Errors: ${errors}`;
+                statusDiv.style.background = '#22c55e';
+                setTimeout(() => { statusDiv.remove(); location.reload(); }, 2000);
+
+                return { updated, errors };
+            } catch (error) {
+                statusDiv.innerHTML = `<i class="fas fa-times-circle"></i> Sync failed: ${error.message}`;
+                statusDiv.style.background = '#ef4444';
+                setTimeout(() => statusDiv.remove(), 5000);
+                throw error;
+            }
+        }
+
+        // Make available globally
+        window.syncAllUseCaseTestCounts = syncAllUseCaseTestCounts;
     </script>
 </body>
 </html>
