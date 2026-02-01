@@ -43,7 +43,15 @@ Resources:
           AttributeDataType: String
           Mutable: true
       EmailConfiguration:
-        EmailSendingAccount: COGNITO_DEFAULT
+        EmailSendingAccount: DEVELOPER
+        SourceArn: arn:aws:ses:us-east-1:567097740753:identity/cisco-apj-sp-agentic-ai.com
+        From: "AI Dashboard <noreply@cisco-apj-sp-agentic-ai.com>"
+        ReplyToEmailAddress: updates@cisco-apj-sp-agentic-ai.com
+      AdminCreateUserConfig:
+        AllowAdminCreateUserOnly: false
+        InviteMessageTemplate:
+          EmailSubject: "Welcome to AI Use Case Dashboard"
+          EmailMessage: "<html><body><p>Hello,</p><p>You have been invited to the <strong>AI Use Case Dashboard</strong>.</p><p><strong>Your login credentials:</strong><br/>Username: {username}<br/>Temporary Password: {####}</p><p>Please login at: <a href=\"https://cisco-apj-sp-agentic-ai.com/login.html\">https://cisco-apj-sp-agentic-ai.com/login.html</a></p><p>You will be asked to change your password on first login.</p><p>Best regards,<br/>AI Dashboard Team</p></body></html>"
 
   UserPoolClient:
     Type: AWS::Cognito::UserPoolClient

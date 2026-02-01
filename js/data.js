@@ -27,6 +27,8 @@ const AppData = {
     // Tenants
     tenants: {
         'jio': { id: 'jio', name: 'Jio India' },
+        'jio-dc': { id: 'jio-dc', name: 'Jio DC' },
+        'jio-security': { id: 'jio-security', name: 'Jio Security' },
         'airtel': { id: 'airtel', name: 'Airtel India - IP Transport' },
         'airtel-it': { id: 'airtel-it', name: 'Airtel IT' },
         'airtel-mpbn': { id: 'airtel-mpbn', name: 'Airtel MPBN' },

@@ -13,7 +13,8 @@ const DYNAMODB_CONFIG = {
         approvals: 'aiusecasedashboard-Approvals-dev',
         activity: 'aiusecasedashboard-Activity-dev',
         salesStages: 'aiusecasedashboard-SalesStages-dev',
-        productionDeployment: 'aiusecasedashboard-ProductionDeployment-dev'
+        productionDeployment: 'aiusecasedashboard-ProductionDeployment-dev',
+        tenants: 'aiusecasedashboard-Tenants-dev'
     }
 };
 
@@ -807,6 +808,127 @@ const ActivityDB = {
     }
 };
 
+/**
+ * Tenant Database Operations
+ * Table has 'id' as the primary key
+ */
+const TenantDB = {
+    // Get all tenants
+    async getAllTenants() {
+        return executeWithRetry(async () => {
+            const client = await getDocClient();
+            const params = {
+                TableName: DYNAMODB_CONFIG.tables.tenants
+            };
+
+            const result = await client.scan(params).promise();
+            return (result.Items || []).sort((a, b) => a.name.localeCompare(b.name));
+        }).catch(error => {
+            console.error('Error fetching tenants:', error);
+            return [];
+        });
+    },
+
+    // Get a single tenant by ID
+    async getTenant(tenantId) {
+        return executeWithRetry(async () => {
+            const client = await getDocClient();
+            const params = {
+                TableName: DYNAMODB_CONFIG.tables.tenants,
+                Key: { id: tenantId }
+            };
+
+            const result = await client.get(params).promise();
+            return result.Item || null;
+        }).catch(error => {
+            console.error('Error fetching tenant:', error);
+            return null;
+        });
+    },
+
+    // Add or update a tenant
+    async saveTenant(tenant) {
+        return executeWithRetry(async () => {
+            const client = await getDocClient();
+            const now = new Date().toISOString();
+
+            const item = {
+                id: tenant.id,
+                name: tenant.name,
+                subdomain: tenant.subdomain || tenant.id,
+                dashboardUrl: tenant.dashboardUrl || `https://${tenant.subdomain || tenant.id}.cisco-apj-sp-agentic-ai.com/index.html`,
+                createdAt: tenant.createdAt || now,
+                updatedAt: now
+            };
+
+            const params = {
+                TableName: DYNAMODB_CONFIG.tables.tenants,
+                Item: item
+            };
+
+            await client.put(params).promise();
+            return { success: true, item: item };
+        }).catch(error => {
+            console.error('Error saving tenant:', error);
+            return { success: false, error: error.message };
+        });
+    },
+
+    // Delete a tenant
+    async deleteTenant(tenantId) {
+        return executeWithRetry(async () => {
+            const client = await getDocClient();
+            const params = {
+                TableName: DYNAMODB_CONFIG.tables.tenants,
+                Key: { id: tenantId }
+            };
+
+            await client.delete(params).promise();
+            return { success: true };
+        }).catch(error => {
+            console.error('Error deleting tenant:', error);
+            return { success: false, error: error.message };
+        });
+    },
+
+    // Seed all tenants from AppData.tenants
+    async seedTenants() {
+        const baseDomain = 'cisco-apj-sp-agentic-ai.com';
+        const tenants = [
+            { id: 'jio', name: 'Jio India', subdomain: 'jio' },
+            { id: 'jio-dc', name: 'Jio DC', subdomain: 'jio-dc' },
+            { id: 'jio-security', name: 'Jio Security', subdomain: 'jio-security' },
+            { id: 'airtel', name: 'Airtel India - IP Transport', subdomain: 'airtel' },
+            { id: 'airtel-it', name: 'Airtel IT', subdomain: 'airtel-it' },
+            { id: 'airtel-mpbn', name: 'Airtel MPBN', subdomain: 'airtel-mpbn' },
+            { id: 'ioh', name: 'Indosat Ooredoo Hutchison (IOH) Indonesia', subdomain: 'ioh' },
+            { id: 'optus', name: 'Optus Australia', subdomain: 'optus' },
+            { id: 'softbank', name: 'SoftBank Japan', subdomain: 'softbank' },
+            { id: 'kddi', name: 'KDDI Japan', subdomain: 'kddi' },
+            { id: 'ntt', name: 'NTT Japan', subdomain: 'ntt' },
+            { id: 'telstra', name: 'Telstra Australia', subdomain: 'telstra' },
+            { id: 'nbn', name: 'NBN Australia', subdomain: 'nbn' },
+            { id: 'pldt', name: 'PLDT Philippines', subdomain: 'pldt' },
+            { id: 'globe', name: 'Globe Telecom Philippines', subdomain: 'globe' },
+            { id: 'xl', name: 'XL Axiata Indonesia', subdomain: 'xl' },
+            { id: 'smart', name: 'Smart Communications Philippines', subdomain: 'smart' }
+        ].map(t => ({
+            ...t,
+            dashboardUrl: `https://${t.subdomain}.${baseDomain}/index.html`
+        }));
+
+        const results = [];
+        for (const tenant of tenants) {
+            const result = await this.saveTenant(tenant);
+            results.push({ tenant: tenant.id, ...result });
+            console.log(`Seeded tenant: ${tenant.id} - ${result.success ? 'OK' : result.error}`);
+        }
+
+        console.log(`Seeding complete. ${results.filter(r => r.success).length}/${tenants.length} tenants saved.`);
+        return results;
+    }
+};
+
 // Export
 window.InfraDB = InfraDB;
 window.SalesDB = SalesDB;
@@ -815,6 +937,7 @@ window.TestCaseDB = TestCaseDB;
 window.DocumentDB = DocumentDB;
 window.ApprovalDB = ApprovalDB;
 window.ActivityDB = ActivityDB;
+window.TenantDB = TenantDB;
 window.SALES_STAGES = SALES_STAGES;
 window.getDocClient = getDocClient;
 window.resetDocClient = resetDocClient;
